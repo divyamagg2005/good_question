@@ -8,8 +8,6 @@ import {
   Sparkles,
   ClipboardList,
   SlidersHorizontal,
-  Sun,
-  Moon,
   Wifi,
   CloudRain,
   SunMedium,
@@ -31,8 +29,6 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const {
     currentDestination,
     setDestination,
-    theme,
-    toggleTheme,
     isDirectorOpen,
     toggleDirector,
     showSimulation,
@@ -453,27 +449,6 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
                 <span style={{ fontSize: '10px', opacity: 0.8 }}>({telemetry.networkLatencyMs}ms)</span>
               </div>
 
-              {/* Day / Night High-Contrast Toggle */}
-              <button
-                onClick={toggleTheme}
-                style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '8px',
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  border: '1px solid var(--cockpit-glass-border)',
-                  color: 'var(--text-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                }}
-                title={`Switch to ${theme === 'night' ? 'Day (High Sunlight)' : 'Night'} Mode`}
-                aria-label="Toggle Theme"
-              >
-                {theme === 'night' ? <Sun size={18} /> : <Moon size={18} />}
-              </button>
             </div>
           </header>
 

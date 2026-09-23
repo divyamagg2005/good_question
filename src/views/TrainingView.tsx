@@ -59,6 +59,9 @@ export const TrainingView: React.FC = () => {
         padding: '20px 24px',
         gap: '20px',
         overflowY: 'auto',
+        // Top-align so each panel grows with its content instead of stretching to the viewport
+        // height and letting overflowing content spill past its background.
+        alignItems: 'flex-start',
       }}
     >
       {/* Main Micro-Lesson & 2D Scenario Card */}

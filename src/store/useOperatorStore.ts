@@ -21,7 +21,6 @@ import type {
 interface OperatorStoreState {
   // Navigation & Shell
   currentDestination: NavigationDestination;
-  theme: 'night' | 'day';
   isDirectorOpen: boolean;
   isIncidentDrawerOpen: boolean;
   selectedContributor: ContributorDetail['id'] | null;
@@ -80,7 +79,6 @@ interface OperatorStoreState {
 
   // Actions
   setDestination: (dest: NavigationDestination) => void;
-  toggleTheme: () => void;
   toggleSimulation: () => void;
   toggleDirector: (open?: boolean) => void;
   toggleIncidentDrawer: (open?: boolean) => void;
@@ -273,7 +271,6 @@ function initialDestination(): NavigationDestination {
 export const useOperatorStore = create<OperatorStoreState>((set, get) => ({
   // Navigation & Shell
   currentDestination: initialDestination(),
-  theme: 'night',
   isDirectorOpen: false,
   isIncidentDrawerOpen: false,
   selectedContributor: null,
@@ -443,13 +440,6 @@ export const useOperatorStore = create<OperatorStoreState>((set, get) => ({
 
   // Actions
   setDestination: (dest) => set({ currentDestination: dest }),
-  toggleTheme: () => {
-    const next = get().theme === 'night' ? 'day' : 'night';
-    if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('data-theme', next);
-    }
-    set({ theme: next });
-  },
   toggleSimulation: () => set((s) => ({ showSimulation: !s.showSimulation })),
   toggleDirector: (open) => set((s) => ({ isDirectorOpen: open !== undefined ? open : !s.isDirectorOpen })),
   toggleIncidentDrawer: (open) => set((s) => ({ isIncidentDrawerOpen: open !== undefined ? open : !s.isIncidentDrawerOpen })),
