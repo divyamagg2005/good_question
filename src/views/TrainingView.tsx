@@ -54,6 +54,7 @@ export const TrainingView: React.FC = () => {
         display: 'flex',
         flex: 1,
         minHeight: 0,
+        width: '100%',
         padding: '20px 24px',
         gap: '20px',
         overflowY: 'auto',
@@ -63,7 +64,8 @@ export const TrainingView: React.FC = () => {
       <div
         className="glass-panel"
         style={{
-          flex: 1.3,
+          flex: '1.3 1 0px',
+          minWidth: 0,
           padding: '24px',
           display: 'flex',
           flexDirection: 'column',
@@ -354,7 +356,8 @@ export const TrainingView: React.FC = () => {
       {/* Right Column: Training Record & Instructor Escalation */}
       <div
         style={{
-          flex: 0.7,
+          flex: '0.7 1 0px',
+          minWidth: 0,
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',

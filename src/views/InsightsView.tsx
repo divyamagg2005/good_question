@@ -19,6 +19,7 @@ export const InsightsView: React.FC = () => {
         display: 'flex',
         flex: 1,
         minHeight: 0,
+        width: '100%',
         padding: '20px 24px',
         gap: '20px',
         overflowY: 'auto',
@@ -28,7 +29,8 @@ export const InsightsView: React.FC = () => {
       <div
         className="glass-panel"
         style={{
-          flex: 1.1,
+          flex: '1.1 1 0px',
+          minWidth: 0,
           padding: '20px',
           display: 'flex',
           flexDirection: 'column',
@@ -121,7 +123,8 @@ export const InsightsView: React.FC = () => {
       <div
         className="glass-panel"
         style={{
-          flex: 1.3,
+          flex: '1.3 1 0px',
+          minWidth: 0,
           padding: '20px',
           display: 'flex',
           flexDirection: 'column',

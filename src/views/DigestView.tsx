@@ -122,7 +122,7 @@ export const DigestView: React.FC = () => {
       </div>
 
       {/* Main Content Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 0.8fr)', gap: '20px' }}>
         {/* Left Column: Readiness Trend & Task Rollup */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Readiness Trend Chart */}

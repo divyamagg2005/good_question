@@ -167,28 +167,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
             flexShrink: 0,
           }}
         >
-          {/* Top Brand Glyph */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', marginBottom: '16px' }}>
-            <div
-              style={{
-                width: '42px',
-                height: '42px',
-                background: 'linear-gradient(135deg, var(--cat-yellow) 0%, var(--cat-yellow-dark) 100%)',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#0d1117',
-                fontWeight: 900,
-                fontSize: '18px',
-                letterSpacing: '-0.03em',
-                boxShadow: '0 4px 12px var(--cat-yellow-glow)',
-              }}
-              title="Caterpillar Smart Operator Assistant"
-            >
-              CAT
-            </div>
-          </div>
+          {/* Top Brand Glyph removed as per request */}
 
           {/* Navigation Links */}
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', alignItems: 'center' }}>
@@ -501,7 +480,11 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           <main
             style={{
               flex: 1,
+              width: '100%',
+              minWidth: 0,
+              minHeight: 0,
               overflowY: 'auto',
+              overflowX: 'hidden',
               display: 'flex',
               flexDirection: 'column',
               position: 'relative',

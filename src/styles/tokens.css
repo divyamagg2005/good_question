@@ -2,45 +2,45 @@
 
 :root {
   /* Cockpit Graphite & Glass Surfaces */
-  --cockpit-bg: #090c10;
-  --cockpit-surface: #0f141c;
-  --cockpit-panel-bg: rgba(18, 25, 38, 0.72);
-  --cockpit-panel-hover: rgba(26, 35, 52, 0.82);
-  --cockpit-card-bg: rgba(14, 20, 30, 0.65);
-  --cockpit-glass-border: rgba(255, 255, 255, 0.09);
-  --cockpit-glass-border-focus: rgba(255, 184, 0, 0.45);
-  --cockpit-glass-border-blue: rgba(14, 165, 233, 0.45);
-  --cockpit-glass-border-red: rgba(239, 68, 68, 0.45);
-  --cockpit-blur: blur(16px);
-  --cockpit-inner-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.08);
+  --cockpit-bg: #000000;
+  --cockpit-surface: #0a0a0a;
+  --cockpit-panel-bg: #0d0d0d;
+  --cockpit-panel-hover: #141414;
+  --cockpit-card-bg: #111111;
+  --cockpit-glass-border: #1f1f1f;
+  --cockpit-glass-border-focus: #ffb800;
+  --cockpit-glass-border-blue: #ffb800;
+  --cockpit-glass-border-red: #ef4444;
+  --cockpit-blur: none;
+  --cockpit-inner-shadow: none;
 
   /* Caterpillar Safety Yellow Focal Colors */
   --cat-yellow: #ffb800;
   --cat-yellow-bright: #ffc425;
   --cat-yellow-dark: #d97706;
-  --cat-yellow-surface: #ffb800;
-  --cat-yellow-text: #0d1117;
-  --cat-yellow-glow: rgba(255, 184, 0, 0.25);
+  --cat-yellow-surface: rgba(255, 184, 0, 0.12);
+  --cat-yellow-text: #000000;
+  --cat-yellow-glow: rgba(255, 184, 0, 0.2);
 
-  /* Electric Guidance & Training Blue */
-  --electric-blue: #0ea5e9;
-  --electric-blue-light: #38bdf8;
-  --electric-blue-dark: #0284c7;
-  --electric-blue-surface: rgba(14, 165, 233, 0.12);
-  --electric-blue-glow: rgba(14, 165, 233, 0.25);
+  /* Electric Guidance & Training Blue (Mapped to Yellow/Neutral) */
+  --electric-blue: #ffb800;
+  --electric-blue-light: #ffc425;
+  --electric-blue-dark: #d97706;
+  --electric-blue-surface: rgba(255, 184, 0, 0.1);
+  --electric-blue-glow: rgba(255, 184, 0, 0.2);
 
   /* Semantic Safety Status Colors */
-  --safety-green: #10b981;
-  --safety-green-glow: rgba(16, 185, 129, 0.25);
-  --safety-green-surface: rgba(16, 185, 129, 0.12);
+  --safety-green: #22c55e;
+  --safety-green-glow: rgba(34, 197, 94, 0.2);
+  --safety-green-surface: rgba(34, 197, 94, 0.1);
 
   --safety-amber: #f59e0b;
-  --safety-amber-glow: rgba(245, 158, 11, 0.25);
-  --safety-amber-surface: rgba(245, 158, 11, 0.12);
+  --safety-amber-glow: rgba(245, 158, 11, 0.2);
+  --safety-amber-surface: rgba(245, 158, 11, 0.1);
 
   --safety-red: #ef4444;
-  --safety-red-glow: rgba(239, 68, 68, 0.35);
-  --safety-red-surface: rgba(239, 68, 68, 0.15);
+  --safety-red-glow: rgba(239, 68, 68, 0.25);
+  --safety-red-surface: rgba(239, 68, 68, 0.12);
 
   /* Industrial Typography & Text Tokens */
   --text-primary: #f0f4f8;
