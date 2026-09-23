@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { SIMULATED_SHIFTS } from '../utils/mockShifts';
+import { rankShifts } from '../utils/scoring';
 import type {
   NavigationDestination,
   WeatherCondition,
@@ -125,6 +127,7 @@ interface OperatorStoreState {
     state: ReadinessState;
     contributors: ContributorDetail[];
   };
+  getRankedShifts: () => import('../utils/scoring').RankedShift[];
 }
 
 const INITIAL_WALKAROUND: WalkaroundCheckItem[] = [
@@ -1098,5 +1101,9 @@ export const useOperatorStore = create<OperatorStoreState>((set, get) => ({
       state,
       contributors,
     };
+  },
+
+  getRankedShifts: () => {
+    return rankShifts(SIMULATED_SHIFTS);
   },
 }));

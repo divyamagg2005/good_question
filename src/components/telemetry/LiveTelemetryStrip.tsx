@@ -93,6 +93,7 @@ export const LiveTelemetryStrip: React.FC = () => {
 
   return (
     <footer
+      id="telemetry-rail"
       className="glass-panel"
       style={{
         margin: '0 20px 16px 20px',

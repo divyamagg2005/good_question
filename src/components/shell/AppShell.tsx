@@ -151,9 +151,10 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       )}
 
       {/* Main Body Layout (Left Rail + Work Area) */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
+      <div id="main-layout" style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
         {/* Compact Icon Rail */}
         <aside
+          id="main-rail"
           style={{
             width: 'var(--rail-width)',
             background: 'rgba(11, 15, 23, 0.95)',
@@ -170,7 +171,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           {/* Top Brand Glyph removed as per request */}
 
           {/* Navigation Links */}
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', alignItems: 'center' }}>
+          <nav id="main-nav" style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', alignItems: 'center' }}>
             {navItems.map((item) => {
               const isActive = currentDestination === item.id;
               return (

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   FileCheck,
 } from 'lucide-react';
+import { LeaderboardWorkspace } from './LeaderboardWorkspace';
 
 export const DigestView: React.FC = () => {
   const {
@@ -121,10 +122,11 @@ export const DigestView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Content Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 0.8fr)', gap: '20px' }}>
-        {/* Left Column: Readiness Trend & Task Rollup */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* Main Content Grid or Leaderboard */}
+      {activeTab === 'operator' ? (
+        <div className="grid-2-col" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 0.8fr)', gap: '20px' }}>
+          {/* Left Column: Readiness Trend & Task Rollup */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Readiness Trend Chart */}
           <div className="glass-panel" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -295,104 +297,11 @@ export const DigestView: React.FC = () => {
             </div>
           </div>
 
-          {/* Supervisor View Special: Machine Telematics & Fleet Rollup */}
-          {activeTab === 'supervisor' ? (
-            <div className="glass-panel" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--electric-blue)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Users size={16} style={{ color: 'var(--electric-blue)' }} />
-                <span style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--electric-blue-light)' }}>
-                  Supervisor Compliance &amp; ECU Audit
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Operator Skill Level:</span>
-                  <span style={{ fontWeight: 700, color: '#ffffff' }}>Level 4 Master (No restrictions)</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Engine Run Hours:</span>
-                  <span className="mono-num" style={{ fontWeight: 700, color: '#ffffff' }}>{telemetry.engineHours.toFixed(1)} hrs</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Fuel Consumed:</span>
-                  <span className="mono-num" style={{ fontWeight: 700, color: '#ffffff' }}>42.6 Liters (18.4 L/hr avg)</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Hydraulic Peak Relief Events:</span>
-                  <span className="mono-num" style={{ fontWeight: 700, color: 'var(--safety-amber)' }}>1 (Within Tolerance)</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Proximity Incidents Closed:</span>
-                  <span style={{ fontWeight: 700, color: 'var(--safety-green)' }}>100% Signed Off</span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="glass-panel" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ShieldCheck size={16} style={{ color: 'var(--safety-green)' }} />
-                <span style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase' }}>
-                  Operator Safety &amp; Training Digest
-                </span>
-              </div>
-
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                All mandatory safety interlocks and training scenario verifications have been closed out. Your machine readiness score is currently in the Optimal band.
-              </p>
-
-              <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--safety-green)' }}>
-                  NEXT RECOMMENDED TRAINING:
-                </div>
-                <div style={{ fontSize: '12px', color: '#ffffff', marginTop: '2px' }}>
-                  Advanced Grade Laser Autonomy &amp; Cat Grade with Assist
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Shift Sign-off Button */}
-          <div className="glass-panel" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase' }}>
-              Digital Shift Sign-Off
-            </div>
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-              Transmit telematics rollup, completed task log, and incident records to Caterpillar Jobsite Cloud.
-            </p>
-
-            {!signedOff ? (
-              <button
-                onClick={() => setSignedOff(true)}
-                className="cockpit-btn cockpit-btn-primary"
-                style={{ width: '100%' }}
-              >
-                <FileCheck size={16} />
-                <span>Submit &amp; Sign Off Shift Report</span>
-              </button>
-            ) : (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  padding: '12px',
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  border: '1px solid var(--safety-green)',
-                  borderRadius: '6px',
-                  color: 'var(--safety-green)',
-                  fontWeight: 800,
-                  fontSize: '12px',
-                }}
-              >
-                <CheckCircle2 size={16} />
-                <span>Shift Report Transmitted to Jobsite Cloud</span>
-              </div>
-            )}
           </div>
         </div>
-      </div>
+      ) : (
+        <LeaderboardWorkspace />
+      )}
     </div>
   );
 };
