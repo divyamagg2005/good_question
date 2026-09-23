@@ -313,6 +313,33 @@ body {
   text-transform: none;
 }
 
+.simulation-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 1.5px solid rgba(240, 181, 52, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(240, 181, 52, 0.45);
+  pointer-events: none;
+}
+
+.simulation-crosshair::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: #f0b534;
+  box-shadow: 0 0 4px rgba(240, 181, 52, 0.9);
+}
+
 @media (max-width: 720px) {
   .simulation-hud-top {
     top: 10px;

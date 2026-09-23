@@ -21,6 +21,12 @@ interface VehicleStats {
 // panel polls it on a slow timer instead of triggering a React re-render 60x/second.
 const vehicleRegistry = new Map<string, VehicleStats>();
 
+// While the mouse is pointer-locked (mouse-look active), the browser freezes clientX/clientY, so
+// react-three-fiber's normal pointer-position raycasting can't tell what's under the (hidden)
+// cursor. Vehicles register their root object here so a screen-center raycast can hit-test them
+// instead — the crosshair overlay marks that same center point so aim matches what's clickable.
+const clickableObjects: THREE.Object3D[] = [];
+
 interface SelectionCtx { selectedId: string | null; select: (id: string) => void }
 const SelectionContext = createContext<SelectionCtx>({ selectedId: null, select: () => {} });
 
@@ -235,6 +241,17 @@ function Truck({ id, start, color }: { id: string; start: number; color: string 
     return () => { vehicleRegistry.delete(id); };
   }, [id]);
 
+  useEffect(() => {
+    const obj = group.current;
+    if (!obj) return;
+    obj.userData.vehicleId = id;
+    clickableObjects.push(obj);
+    return () => {
+      const index = clickableObjects.indexOf(obj);
+      if (index !== -1) clickableObjects.splice(index, 1);
+    };
+  }, [id]);
+
   useFrame((_, delta) => {
     const stats = statsRef.current;
     const prevX = stats.position.x;
@@ -290,6 +307,17 @@ function Bulldozer({ position, phase, label }: { position: Point; phase: number;
     const stats = statsRef.current;
     vehicleRegistry.set(label, stats);
     return () => { vehicleRegistry.delete(label); };
+  }, [label]);
+
+  useEffect(() => {
+    const obj = group.current;
+    if (!obj) return;
+    obj.userData.vehicleId = label;
+    clickableObjects.push(obj);
+    return () => {
+      const index = clickableObjects.indexOf(obj);
+      if (index !== -1) clickableObjects.splice(index, 1);
+    };
   }, [label]);
 
   useFrame((state, delta) => {
@@ -478,7 +506,7 @@ function SiteProps() {
   );
 }
 
-function SimulationScene({ onContextLost }: { onContextLost: () => void }) {
+function SimulationScene({ onContextLost, onLockChange }: { onContextLost: () => void; onLockChange: (locked: boolean) => void }) {
   return (
     <>
       <color attach="background" args={['#071016']} />
@@ -508,6 +536,8 @@ function SimulationScene({ onContextLost }: { onContextLost: () => void }) {
       {Array.from({ length: 12 }, (_, index) => <RoamingWorker key={index} />)}
       <FreeFlyCamera />
       <ContextWatcher onLost={onContextLost} />
+      <CenterClickSelector />
+      <PointerLockStatus onChange={onLockChange} />
     </>
   );
 }
@@ -525,6 +555,40 @@ function ContextWatcher({ onLost }: { onLost: () => void }) {
     canvas.addEventListener('webglcontextlost', handleLost);
     return () => canvas.removeEventListener('webglcontextlost', handleLost);
   }, [gl, onLost]);
+  return null;
+}
+
+// Pointer Lock freezes clientX/clientY at whatever they were when the lock engaged, so
+// react-three-fiber's normal pointer-position raycasting can't tell what's under the (now hidden)
+// OS cursor. While locked, aim is always screen-center (the crosshair) — raycast from there.
+function CenterClickSelector() {
+  const { camera, raycaster, gl } = useThree();
+  const { select } = useContext(SelectionContext);
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const onClick = () => {
+      if (document.pointerLockElement !== canvas) return;
+      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+      const hits = raycaster.intersectObjects(clickableObjects, true);
+      if (hits.length === 0) return;
+      let obj: THREE.Object3D | null = hits[0].object;
+      while (obj && !obj.userData.vehicleId) obj = obj.parent;
+      if (obj?.userData.vehicleId) select(obj.userData.vehicleId as string);
+    };
+    canvas.addEventListener('click', onClick);
+    return () => canvas.removeEventListener('click', onClick);
+  }, [camera, raycaster, gl, select]);
+  return null;
+}
+
+function PointerLockStatus({ onChange }: { onChange: (locked: boolean) => void }) {
+  const { gl } = useThree();
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const onLockChange = () => onChange(document.pointerLockElement === canvas);
+    document.addEventListener('pointerlockchange', onLockChange);
+    return () => document.removeEventListener('pointerlockchange', onLockChange);
+  }, [gl, onChange]);
   return null;
 }
 
@@ -578,6 +642,7 @@ export const SimulationView: React.FC = () => {
   const [canvasKey, setCanvasKey] = useState(0);
   const [contextLost, setContextLost] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [locked, setLocked] = useState(false);
   useEffect(() => {
     if (!ready && !active && progress >= 100) {
       const timeout = setTimeout(() => setReady(true), 300);
@@ -610,15 +675,16 @@ export const SimulationView: React.FC = () => {
       <div className="simulation-view" id="simulation-canvas-root">
         <Canvas key={canvasKey} camera={{ position: [0, 55, 52], fov: 55 }} dpr={[1, 1.5]}>
           <Suspense fallback={null}>
-            <SimulationScene onContextLost={handleContextLost} />
+            <SimulationScene onContextLost={handleContextLost} onLockChange={setLocked} />
           </Suspense>
         </Canvas>
+        {ready && !contextLost && locked && <div className="simulation-crosshair" />}
         {ready && !contextLost && (
           <>
             <div className="simulation-hud simulation-hud-top"><div><span className="simulation-live-dot" /> DEMO / AUTONOMOUS OPERATIONS</div><span className="simulation-clock">NIGHT SHIFT  ·  23:48:16</span></div>
             <div className="simulation-hud simulation-legend"><strong>SITE PULSE</strong><span><b className="status-green" /> 06 VEHICLES ACTIVE</span><span><b className="status-amber" /> 16 WORKERS IN FIELD</span><span><b className="status-blue" /> ROUTES ONLINE</span></div>
             <div className="simulation-zone-note"><span>LIVE MAP</span><strong>OPERATIONAL DENSITY 86%</strong><small>All sectors reporting · 22 entities moving</small></div>
-            <div className="simulation-hud simulation-nav-hint">CLICK SCENE · MOUSE LOOK · WASD MOVE · CLICK A VEHICLE TO FOLLOW · ESC RELEASE</div>
+            <div className="simulation-hud simulation-nav-hint">MOUSE LOOK · WASD MOVE · CROSSHAIR ON VEHICLE + CLICK TO FOLLOW · ESC RELEASE</div>
             <VehiclePanel />
           </>
         )}
