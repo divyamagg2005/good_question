@@ -126,11 +126,11 @@ export const LeaderboardWorkspace: React.FC = () => {
             </div>
 
             {selectedShift.scores.isInsufficientData ? (
-               <div style={{ padding: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', textAlign: 'center' }}>
-                 <AlertTriangle size={24} style={{ color: 'var(--safety-amber)', margin: '0 auto 8px auto' }} />
-                 <div style={{ fontSize: '13px', color: '#fff', fontWeight: 600 }}>Insufficient Data</div>
-                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Shift must have >1hr duration and >2 cycles completed to rank.</div>
-               </div>
+                 <div style={{ padding: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', textAlign: 'center' }}>
+                  <AlertTriangle size={24} style={{ color: 'var(--safety-amber)', margin: '0 auto 8px auto' }} />
+                  <div style={{ fontSize: '13px', color: '#fff', fontWeight: 600 }}>Insufficient Data</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Shift must have &gt;1hr duration and &gt;2 cycles completed to rank.</div>
+                </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 
