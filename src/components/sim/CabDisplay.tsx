@@ -19,6 +19,10 @@ export function CabAlertLayer() {
   const assessment = useLinkStore((s) => s.assessment);
   const muted = useLinkStore((s) => s.muted);
   const voice = useLinkStore((s) => s.voice);
+  const cabStatus = useLinkStore((s) => s.cabStatus);
+  const telStatus = useLinkStore((s) => s.telStatus);
+  // While either socket is down, the backend can't hear the fix or send the all-clear.
+  const linkDown = cabStatus !== 'open' || telStatus !== 'open';
   const [acked, setAcked] = useState<Record<string, Severity>>({});
   const chimed = useRef(new Set<string>());
   const spoken = useRef(new Set<string>());
@@ -55,6 +59,13 @@ export function CabAlertLayer() {
 
   useEffect(() => () => { setAlarm('none'); stopSpeaking(); }, []);
 
+  // A critical alert needs the operator's attention: give the mouse back if mouse-look has it
+  // locked, otherwise clicks keep going to the 3D view and the page feels frozen.
+  const hasCritical = critical.length > 0;
+  useEffect(() => {
+    if (hasCritical && document.pointerLockElement) document.exitPointerLock();
+  }, [hasCritical]);
+
   return (
     <>
       {critical.length > 0 && (
@@ -66,11 +77,13 @@ export function CabAlertLayer() {
             {critical[0].adjusted_threshold_note && <div className="cab-critical-note">{critical[0].adjusted_threshold_note}</div>}
             {critical.length > 1 && <div className="cab-critical-note">+{critical.length - 1} more critical alert{critical.length > 2 ? 's' : ''}</div>}
             <div className="cab-critical-id">{critical.map((a) => a.alert_id).join(' · ')}</div>
+            {linkDown && <div className="cab-critical-stale">Backend connection lost · reconnecting · this alert may be out of date</div>}
+            <div className="cab-critical-hint">Clears automatically once the condition is resolved · use the Director panel to resolve it in the sim</div>
           </div>
         </div>
       )}
       {banners.length > 0 && (
-        <div className="cab-banner-stack">
+        <div className={`cab-banner-stack${hasCritical ? ' cab-banner-stack-below' : ''}`}>
           {banners.map((a) => (
             <div key={a.alert_id} className={`cab-banner cab-banner-${a.severity}${isAcked(a) ? ' cab-banner-acked' : ''}`}>
               <div className="cab-banner-body">

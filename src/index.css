@@ -762,6 +762,17 @@ body {
 .cab-critical-action { margin-top: 10px; font-size: 14px; font-weight: 700; color: #ffe066; text-transform: uppercase; letter-spacing: 0.06em; }
 .cab-critical-note { margin-top: 6px; font-size: 11px; color: #ffcfc9; }
 .cab-critical-id { margin-top: 10px; font-size: 9px; color: #ff9d92; letter-spacing: 0.1em; }
+.cab-critical-hint { margin-top: 8px; font-size: 9px; color: #ffcfc9; opacity: 0.75; letter-spacing: 0.04em; }
+.cab-critical-stale { margin-top: 10px; padding: 6px 8px; border: 1px dashed #ffe066; border-radius: 3px; font-size: 10px; color: #ffe066; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* Controls stay above the critical tint so the operator/director can always act on it. */
+.simulation-hud-top,
+.simulation-nav-hint,
+.sim-console,
+.cab-panel,
+.simulation-vehicle-panel { z-index: 8; }
+.simulation-crosshair { z-index: 9; }
+.cab-banner-stack-below { top: 260px; z-index: 8; }
 
 @keyframes cab-critical-pulse {
   0%, 100% { background: rgba(200, 0, 0, 0.14); }
