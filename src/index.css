@@ -256,7 +256,7 @@ body {
 
 .simulation-vehicle-panel {
   top: 72px;
-  left: 18px;
+  left: 306px;
   width: 236px;
   display: flex;
   flex-direction: column;
@@ -338,6 +338,434 @@ body {
   border-radius: 50%;
   background: #f0b534;
   box-shadow: 0 0 4px rgba(240, 181, 52, 0.9);
+}
+
+/* ---------------- IronSense sim: director console ---------------- */
+
+.simulation-live-dot-off {
+  background: #ff5a4a;
+  box-shadow: 0 0 10px #ff5a4a;
+}
+
+.sim-console {
+  top: 72px;
+  left: 18px;
+  width: 272px;
+  max-height: calc(100% - 136px);
+  display: flex;
+  flex-direction: column;
+  border-left: 2px solid #f0b534;
+  text-transform: none;
+}
+
+.sim-console-head,
+.cab-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(143, 170, 168, 0.2);
+}
+
+.sim-console-head strong,
+.cab-panel-head strong {
+  color: #f0b534;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.sim-console-head button {
+  background: none;
+  border: none;
+  color: #9eb5b0;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.sim-console-collapsed .sim-console-head { border-bottom: none; }
+
+.sim-console-body {
+  overflow-y: auto;
+  padding: 4px 12px 12px;
+}
+
+.sim-console-body section {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(143, 170, 168, 0.12);
+}
+
+.sim-console-body h4 {
+  margin: 0 0 7px;
+  color: #66b9d1;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sim-console-body h4 em { color: #f0b534; font-style: normal; }
+
+.sim-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.sim-row label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #7b9692;
+  font-size: 9px;
+}
+
+.sim-console select,
+.sim-console input {
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid rgba(143, 170, 168, 0.3);
+  border-radius: 3px;
+  background: rgba(3, 9, 11, 0.8);
+  color: #dce9e4;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.sim-console input { width: 52px; }
+.sim-row > select { flex: 1; }
+
+.sim-btn,
+.sim-errors button {
+  padding: 5px 9px;
+  border: 1px solid rgba(240, 181, 52, 0.6);
+  border-radius: 3px;
+  background: rgba(240, 181, 52, 0.08);
+  color: #f0b534;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sim-btn:hover:not(:disabled) { background: rgba(240, 181, 52, 0.22); }
+.sim-btn:disabled, .sim-toggle:disabled, .sim-scenario:disabled { opacity: 0.4; cursor: not-allowed; }
+.sim-btn-primary { flex: 1; background: #f0b534; color: #071016; font-weight: 700; }
+.sim-btn-primary:hover:not(:disabled) { background: #ffc94d; }
+
+.sim-status-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #8da9a5;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  line-height: 1.7;
+}
+
+.sim-status-line span { display: inline-flex; align-items: center; }
+
+.sim-hint {
+  display: block;
+  color: #7b9692;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.sim-toggles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.sim-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 7px;
+  border: 1px solid rgba(143, 170, 168, 0.25);
+  border-radius: 3px;
+  background: rgba(3, 9, 11, 0.6);
+  color: #9eb5b0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sim-toggle-knob {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3b4a4d;
+}
+
+.sim-toggle-on { border-color: rgba(56, 211, 159, 0.5); color: #dce9e4; }
+.sim-toggle-on .sim-toggle-knob { background: #38d39f; box-shadow: 0 0 6px #38d39f; }
+.sim-toggle-danger { border-color: rgba(255, 90, 74, 0.55); color: #ff8a7a; }
+.sim-toggle-danger .sim-toggle-knob { background: #ff5a4a; }
+
+.sim-scenarios {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.sim-scenario {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border: 1px solid rgba(143, 170, 168, 0.2);
+  border-radius: 3px;
+  background: rgba(3, 9, 11, 0.55);
+  color: #b9cbc7;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sim-scenario b {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 2px;
+  background: rgba(102, 185, 209, 0.16);
+  color: #66b9d1;
+}
+
+.sim-scenario:hover:not(:disabled) { border-color: rgba(240, 181, 52, 0.6); }
+.sim-scenario-active { border-color: #f0b534; background: rgba(240, 181, 52, 0.14); color: #fff; }
+.sim-scenario-active b { background: #f0b534; color: #071016; }
+
+.sim-errors {
+  margin-top: 6px;
+  padding: 7px;
+  border: 1px solid rgba(255, 90, 74, 0.45);
+  border-radius: 3px;
+  background: rgba(255, 90, 74, 0.08);
+  color: #ff8a7a;
+}
+
+.sim-error { font-size: 9px; line-height: 1.5; word-break: break-word; }
+.sim-errors small { color: #7b9692; font-size: 8px; }
+
+/* ---------------- IronSense sim: cab panel ---------------- */
+
+.cab-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #3b4a4d;
+}
+
+.cab-dot-open { background: #38d39f; box-shadow: 0 0 6px #38d39f; }
+.cab-dot-connecting, .cab-dot-retrying { background: #f0b534; animation: simulation-pulse 1.2s ease-in-out infinite; }
+
+.cab-panel {
+  top: 72px;
+  right: 18px;
+  width: 256px;
+  max-height: calc(100% - 136px);
+  overflow-y: auto;
+  border-right: 2px solid #66b9d1;
+  padding-bottom: 12px;
+}
+
+.cab-panel-head small { margin-left: auto; color: #66808a; font-size: 8px; }
+.cab-panel > :not(.cab-panel-head) { margin-left: 12px; margin-right: 12px; }
+
+.cab-readiness {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0 6px;
+}
+
+.cab-readiness-score {
+  min-width: 58px;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+.cab-readiness-bars { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+
+.cab-bar-row {
+  display: grid;
+  grid-template-columns: 62px 1fr 22px;
+  align-items: center;
+  gap: 5px;
+  font-size: 8px;
+  color: #7b9692;
+}
+
+.cab-bar-row b { color: #dce9e4; text-align: right; }
+.cab-bar { height: 4px; border-radius: 2px; background: rgba(143, 170, 168, 0.15); overflow: hidden; }
+.cab-bar div { height: 100%; transition: width 0.4s ease; }
+
+.cab-ring { display: block; margin: 6px auto 2px; }
+.cab-ring-label { fill: #66808a; font-size: 8px; letter-spacing: 0.1em; }
+.cab-ring-tag { font-size: 8px; font-weight: 700; }
+.cab-ring-pulse { animation: cab-ring-pulse 0.9s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+
+@keyframes cab-ring-pulse {
+  from { opacity: 1; transform: scale(0.5); }
+  to { opacity: 0; transform: scale(1.6); }
+}
+
+.cab-zone-note { color: #8da9a5; font-size: 8px; text-align: center; }
+.cab-zone-note em { color: #f0b534; font-style: normal; }
+
+.cab-section-title {
+  margin-top: 12px;
+  margin-bottom: 5px;
+  color: #66b9d1;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.cab-empty, .cab-locked { color: #66808a; font-size: 9px; text-transform: none; line-height: 1.5; }
+.cab-locked { margin-top: 12px; padding: 8px; border: 1px dashed rgba(143, 170, 168, 0.3); border-radius: 3px; }
+
+.cab-alert-row {
+  margin-bottom: 4px;
+  padding: 5px 7px;
+  border-left: 3px solid;
+  background: rgba(3, 9, 11, 0.5);
+  color: #dce9e4;
+  font-size: 9px;
+  text-transform: none;
+  line-height: 1.4;
+}
+
+.cab-alert-row b { text-transform: uppercase; }
+
+.cab-kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 9px;
+  line-height: 1.7;
+  color: #7b9692;
+  text-transform: none;
+}
+
+.cab-kv b { color: #dce9e4; }
+.cab-kv-dim b { color: #f0b534; }
+
+.cab-anomaly { margin-bottom: 6px; color: #9eb5b0; font-size: 9px; text-transform: none; line-height: 1.5; }
+.cab-anomaly b { color: #f0b534; text-transform: uppercase; }
+
+/* ---------------- IronSense sim: alerts ---------------- */
+
+.cab-banner-stack {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  z-index: 6;
+  width: min(520px, calc(100% - 620px));
+  min-width: 300px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cab-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid;
+  border-radius: 4px;
+  background: rgba(8, 16, 19, 0.9);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #dce9e4;
+  backdrop-filter: blur(10px);
+}
+
+.cab-banner-body { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.cab-banner-body strong { font-size: 9px; letter-spacing: 0.14em; }
+.cab-banner-body em { color: #9eb5b0; font-style: normal; font-size: 9px; }
+.cab-banner small { color: #66808a; font-size: 8px; }
+.cab-banner-info { border-color: rgba(102, 185, 209, 0.5); padding: 6px 10px; }
+.cab-banner-info strong { color: #66b9d1; }
+.cab-banner-warning { border-color: #f0b534; background: rgba(60, 40, 5, 0.9); }
+.cab-banner-warning strong { color: #f0b534; }
+.cab-banner-high { border-color: #ff5a4a; background: rgba(90, 14, 10, 0.92); animation: cab-banner-flash 1.4s ease-in-out infinite; }
+.cab-banner-high strong { color: #ff8a7a; }
+.cab-banner-acked { animation: none; opacity: 0.8; }
+
+.cab-banner button {
+  padding: 6px 10px;
+  border: 1px solid #ff8a7a;
+  border-radius: 3px;
+  background: #ff5a4a;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+@keyframes cab-banner-flash {
+  0%, 100% { box-shadow: 0 0 0 rgba(255, 90, 74, 0); }
+  50% { box-shadow: 0 0 22px rgba(255, 90, 74, 0.55); }
+}
+
+.cab-critical-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 64px;
+  pointer-events: none;
+  background: rgba(200, 0, 0, 0.18);
+  box-shadow: inset 0 0 160px 40px rgba(255, 20, 20, 0.75);
+  animation: cab-critical-pulse 0.9s ease-in-out infinite;
+}
+
+.cab-critical-card {
+  width: min(640px, calc(100% - 40px));
+  padding: 18px 22px;
+  border: 2px solid #ff2d2d;
+  border-radius: 6px;
+  background: rgba(120, 0, 0, 0.92);
+  color: #fff;
+  font-family: var(--font-mono);
+  text-align: center;
+  box-shadow: 0 0 40px rgba(255, 30, 30, 0.8);
+}
+
+.cab-critical-kicker { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: #ffb3aa; }
+.cab-critical-message { margin-top: 8px; font-size: 24px; font-weight: 800; line-height: 1.25; }
+.cab-critical-action { margin-top: 10px; font-size: 14px; font-weight: 700; color: #ffe066; text-transform: uppercase; letter-spacing: 0.06em; }
+.cab-critical-note { margin-top: 6px; font-size: 11px; color: #ffcfc9; }
+.cab-critical-id { margin-top: 10px; font-size: 9px; color: #ff9d92; letter-spacing: 0.1em; }
+
+@keyframes cab-critical-pulse {
+  0%, 100% { background: rgba(200, 0, 0, 0.14); }
+  50% { background: rgba(230, 0, 0, 0.3); }
 }
 
 @media (max-width: 720px) {

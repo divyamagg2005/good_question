@@ -1,54 +1,17 @@
-import React, { Suspense, createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { PointerLockControls, Text, Stars, useGLTF, useProgress } from '@react-three/drei';
+import { PointerLockControls, Text, Stars, useProgress } from '@react-three/drei';
 import * as THREE from 'three';
+import { MODELS, SelectionContext, clickableObjects, vehicleRegistry, type VehicleStats } from '../components/sim/sceneShared';
+import { Model } from '../components/sim/Model';
+import { SimWorld } from '../components/sim/SiteLayer3D';
+import { CabAlertLayer, CabPanel } from '../components/sim/CabDisplay';
+import { SimConsole } from '../components/sim/SimConsole';
+import { useSim } from '../sim/useSim';
+import { useLinkStore } from '../sim/link';
 
 type Point = [number, number];
 type VehicleState = 'MOVING' | 'LOADING' | 'UNLOADING';
-type VehicleKind = 'Haul Truck' | 'Bulldozer';
-
-interface VehicleStats {
-  id: string;
-  kind: VehicleKind;
-  state: string;
-  speedKmh: number;
-  progress: number;
-  position: THREE.Vector3;
-  velocity: THREE.Vector3;
-}
-
-// Live vehicle telemetry lives outside React state (it changes every animation frame) — the side
-// panel polls it on a slow timer instead of triggering a React re-render 60x/second.
-const vehicleRegistry = new Map<string, VehicleStats>();
-
-// While the mouse is pointer-locked (mouse-look active), the browser freezes clientX/clientY, so
-// react-three-fiber's normal pointer-position raycasting can't tell what's under the (hidden)
-// cursor. Vehicles register their root object here so a screen-center raycast can hit-test them
-// instead — the crosshair overlay marks that same center point so aim matches what's clickable.
-const clickableObjects: THREE.Object3D[] = [];
-
-interface SelectionCtx { selectedId: string | null; select: (id: string) => void }
-const SelectionContext = createContext<SelectionCtx>({ selectedId: null, select: () => {} });
-
-const MODEL_DIR = '/models/';
-const asset = (name: string) => encodeURI(MODEL_DIR + name);
-
-const MODELS = {
-  dumpTruck: 'Dump truck.glb',
-  bulldozer: 'Bulldozer.glb',
-  crane: 'Crane by J-Toastie - gCcpjaxFdv.glb',
-  coal: 'coal.glb',
-  quarry: 'quarry_optimized.glb',
-  trailer: 'Blocks Trailer Map by Danni Bittman - 6jGuvmwkDly.glb',
-  lever: 'Lever by Quaternius - guR2QhKFLT.glb',
-  speedometer: 'Speedometer by Poly by Google - 17WlSF6dD-r.glb',
-  workerWalk: 'worker_walk.glb',
-  workerWave: 'worker_wave.glb',
-  workerRun: 'worker_run.glb',
-  workerInteract: 'worker_interact.glb',
-} as const;
-
-Object.values(MODELS).forEach((name) => useGLTF.preload(asset(name)));
 
 // Single smooth haul-road loop threading every zone in order: pit -> corridor -> stockpile -> processing -> maintenance -> pit.
 const ROUTE_WAYPOINTS: Point[] = [
@@ -69,43 +32,6 @@ const STOCKPILE_RADIUS = 9;
 
 const truckStarts = [0.02, 0.18, 0.34, 0.5, 0.66, 0.82];
 const truckColors = ['#f4b41a', '#e8edf2', '#d85d39', '#f4b41a', '#7ba6b8', '#f4b41a'];
-
-function useNormalizedModel(name: string, targetSize: number, tint?: string) {
-  const { scene } = useGLTF(asset(name));
-  return useMemo(() => {
-    const clone = scene.clone(true);
-    clone.traverse((child) => {
-      const mesh = child as THREE.Mesh;
-      if (mesh.isMesh) {
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        if (tint && mesh.material) {
-          const material = (mesh.material as THREE.MeshStandardMaterial).clone();
-          material.color = new THREE.Color(tint);
-          mesh.material = material;
-        }
-      }
-    });
-    const box = new THREE.Box3().setFromObject(clone);
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const maxDim = Math.max(size.x, size.y, size.z) || 1;
-    const scale = targetSize / maxDim;
-    clone.scale.setScalar(scale);
-    const scaledBox = new THREE.Box3().setFromObject(clone);
-    const center = new THREE.Vector3();
-    scaledBox.getCenter(center);
-    clone.position.set(-center.x, -scaledBox.min.y, -center.z);
-    const wrapper = new THREE.Group();
-    wrapper.add(clone);
-    return wrapper;
-  }, [scene, targetSize, tint]);
-}
-
-function Model({ name, targetSize, tint }: { name: string; targetSize: number; tint?: string }) {
-  const model = useNormalizedModel(name, targetSize, tint);
-  return <primitive object={model} />;
-}
 
 function buildRoadGeometry(curve: THREE.CatmullRomCurve3, width: number, segments: number) {
   const points = curve.getSpacedPoints(segments);
@@ -188,21 +114,21 @@ function Ground() {
   const texture = useMemo(() => {
     const map = new THREE.TextureLoader().load(encodeURI('/textures/mining_ground.jpg'));
     map.wrapS = map.wrapT = THREE.RepeatWrapping;
-    map.repeat.set(12, 8);
+    map.repeat.set(24, 18);
     map.anisotropy = 8;
     return map;
   }, []);
   return (
     <>
       <mesh rotation-x={-Math.PI / 2} receiveShadow>
-        <planeGeometry args={[100, 68]} />
+        <planeGeometry args={[200, 150]} />
         <meshStandardMaterial map={texture} color="#525f57" roughness={0.98} />
       </mesh>
       <mesh rotation-x={-Math.PI / 2} position={[0, 0.02, 0]}>
-        <planeGeometry args={[100, 68]} />
+        <planeGeometry args={[200, 150]} />
         <meshBasicMaterial color="#050d0f" transparent opacity={0.36} />
       </mesh>
-      <gridHelper args={[100, 25, '#30413d', '#1c2a27']} position={[0, 0.03, 0]} />
+      <gridHelper args={[200, 50, '#30413d', '#1c2a27']} position={[0, 0.03, 0]} />
     </>
   );
 }
@@ -365,7 +291,8 @@ function Worker({ position, phase, label, variant = MODELS.workerWalk }: { posit
   );
 }
 
-const SITE_BOUNDS = { minX: -42, maxX: 42, minZ: -27, maxZ: 27 };
+// Roamers stay north of the IronSense excavator work area (scene z > 22) so they never enter its sensors.
+const SITE_BOUNDS = { minX: -42, maxX: 42, minZ: -27, maxZ: 16 };
 const randRange = (min: number, max: number) => min + Math.random() * (max - min);
 const roamVariants = [MODELS.workerWalk, MODELS.workerWalk, MODELS.workerWalk, MODELS.workerRun];
 const pickVariant = () => roamVariants[Math.floor(Math.random() * roamVariants.length)];
@@ -406,7 +333,7 @@ function FreeFlyCamera() {
   const { selectedId } = useContext(SelectionContext);
   const keys = useRef<Record<string, boolean>>({});
   useEffect(() => {
-    camera.lookAt(0, 0, 0);
+    camera.lookAt(14, 0, 34);
     const down = (event: KeyboardEvent) => { keys.current[event.code] = true; };
     const up = (event: KeyboardEvent) => { keys.current[event.code] = false; };
     window.addEventListener('keydown', down);
@@ -459,7 +386,7 @@ function FreeFlyCamera() {
     camera.position.add(move.current);
     camera.position.setY(Math.max(camera.position.y, MIN_EYE_HEIGHT));
   });
-  return <PointerLockControls selector="#simulation-canvas-root" minPolarAngle={0.05} maxPolarAngle={Math.PI - 0.05} />;
+  return <PointerLockControls selector="#simulation-canvas-root canvas" minPolarAngle={0.05} maxPolarAngle={Math.PI - 0.05} />;
 }
 
 function Crane({ position }: { position: Point }) {
@@ -510,7 +437,7 @@ function SimulationScene({ onContextLost, onLockChange }: { onContextLost: () =>
   return (
     <>
       <color attach="background" args={['#071016']} />
-      <fog attach="fog" args={['#071016', 48, 98]} />
+      <fog attach="fog" args={['#071016', 60, 150]} />
       <ambientLight intensity={1.4} color="#a6bbc6" />
       <directionalLight position={[-20, 30, 10]} intensity={1.9} color="#b3c8d1" castShadow />
       <directionalLight position={[24, 18, -22]} intensity={0.5} color="#f0a562" />
@@ -534,6 +461,7 @@ function SimulationScene({ onContextLost, onLockChange }: { onContextLost: () =>
       <Worker position={[10, 13]} phase={3.1} label="W-033" variant={MODELS.workerInteract} />
       <Worker position={[29, 11]} phase={4.6} label="W-041" variant={MODELS.workerRun} />
       {Array.from({ length: 12 }, (_, index) => <RoamingWorker key={index} />)}
+      <SimWorld />
       <FreeFlyCamera />
       <ContextWatcher onLost={onContextLost} />
       <CenterClickSelector />
@@ -636,6 +564,20 @@ function SimulationLoader({ visible }: { visible: boolean }) {
   );
 }
 
+const CONNECTION_TEXT: Record<string, string> = { offline: 'BACKEND OFFLINE', connecting: 'CONNECTING', open: 'LIVE TO BACKEND', retrying: 'RECONNECTING' };
+
+function SimTopBar() {
+  const snap = useSim();
+  const telStatus = useLinkStore((s) => s.telStatus);
+  const clock = snap.status === 'stopped' ? 'SIM STOPPED' : `${snap.timestamp.replace('T', '  ').replace('Z', ' UTC')}  ·  ${snap.cfg.timeScale}×`;
+  return (
+    <div className="simulation-hud simulation-hud-top">
+      <div><span className={`simulation-live-dot${telStatus === 'open' ? '' : ' simulation-live-dot-off'}`} /> IRONSENSE · SITE01 · {CONNECTION_TEXT[telStatus]}</div>
+      <span className="simulation-clock">{snap.weather.toUpperCase()} · {snap.light.toUpperCase()}  ·  {clock}</span>
+    </div>
+  );
+}
+
 export const SimulationView: React.FC = () => {
   const { active, progress } = useProgress();
   const [ready, setReady] = useState(false);
@@ -673,7 +615,7 @@ export const SimulationView: React.FC = () => {
   return (
     <SelectionContext.Provider value={{ selectedId, select }}>
       <div className="simulation-view" id="simulation-canvas-root">
-        <Canvas key={canvasKey} camera={{ position: [0, 55, 52], fov: 55 }} dpr={[1, 1.5]}>
+        <Canvas key={canvasKey} camera={{ position: [24, 24, 64], fov: 55 }} dpr={[1, 1.5]}>
           <Suspense fallback={null}>
             <SimulationScene onContextLost={handleContextLost} onLockChange={setLocked} />
           </Suspense>
@@ -681,10 +623,11 @@ export const SimulationView: React.FC = () => {
         {ready && !contextLost && locked && <div className="simulation-crosshair" />}
         {ready && !contextLost && (
           <>
-            <div className="simulation-hud simulation-hud-top"><div><span className="simulation-live-dot" /> DEMO / AUTONOMOUS OPERATIONS</div><span className="simulation-clock">NIGHT SHIFT  ·  23:48:16</span></div>
-            <div className="simulation-hud simulation-legend"><strong>SITE PULSE</strong><span><b className="status-green" /> 06 VEHICLES ACTIVE</span><span><b className="status-amber" /> 16 WORKERS IN FIELD</span><span><b className="status-blue" /> ROUTES ONLINE</span></div>
-            <div className="simulation-zone-note"><span>LIVE MAP</span><strong>OPERATIONAL DENSITY 86%</strong><small>All sectors reporting · 22 entities moving</small></div>
-            <div className="simulation-hud simulation-nav-hint">MOUSE LOOK · WASD MOVE · CROSSHAIR ON VEHICLE + CLICK TO FOLLOW · ESC RELEASE</div>
+            <SimTopBar />
+            <div className="simulation-hud simulation-nav-hint">MOUSE LOOK · WASD MOVE · CLICK VEHICLE TO FOLLOW · ESC RELEASE</div>
+            <SimConsole />
+            <CabPanel />
+            <CabAlertLayer />
             <VehiclePanel />
           </>
         )}
