@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calculateShiftScores, rankShifts, ShiftRecord } from './scoring';
+import { calculateShiftScores, rankShifts } from './scoring';
+import type { ShiftRecord } from './scoring';
 
 describe('Shift Scoring System', () => {
   const baseShift: ShiftRecord = {

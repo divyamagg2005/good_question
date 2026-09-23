@@ -254,6 +254,65 @@ body {
   color: #071016;
 }
 
+.simulation-vehicle-panel {
+  top: 72px;
+  left: 18px;
+  width: 236px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-left: 2px solid #66e0ff;
+}
+
+.simulation-vehicle-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.simulation-vehicle-panel-header strong {
+  color: #66e0ff;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+}
+
+.simulation-vehicle-panel-header .simulation-retry-btn {
+  margin-top: 0;
+  padding: 5px 9px;
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.simulation-vehicle-panel-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.simulation-vehicle-panel-row span {
+  color: #7b9692;
+  font-size: 9px;
+}
+
+.simulation-vehicle-panel-row b {
+  color: #dce9e4;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+}
+
+.simulation-vehicle-panel-hint {
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(143, 170, 168, 0.2);
+  color: #66808a;
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
 @media (max-width: 720px) {
   .simulation-hud-top {
     top: 10px;

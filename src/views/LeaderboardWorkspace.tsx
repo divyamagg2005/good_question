@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useOperatorStore } from '../store/useOperatorStore';
-import { RankedShift } from '../utils/scoring';
 import { Trophy, AlertTriangle, ChevronRight, Activity, Zap, ShieldAlert } from 'lucide-react';
 
 export const LeaderboardWorkspace: React.FC = () => {

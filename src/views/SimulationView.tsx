@@ -1,10 +1,28 @@
-import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import React, { Suspense, createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { PointerLockControls, Text, Stars, useGLTF, useProgress } from '@react-three/drei';
 import * as THREE from 'three';
 
 type Point = [number, number];
 type VehicleState = 'MOVING' | 'LOADING' | 'UNLOADING';
+type VehicleKind = 'Haul Truck' | 'Bulldozer';
+
+interface VehicleStats {
+  id: string;
+  kind: VehicleKind;
+  state: string;
+  speedKmh: number;
+  progress: number;
+  position: THREE.Vector3;
+  velocity: THREE.Vector3;
+}
+
+// Live vehicle telemetry lives outside React state (it changes every animation frame) — the side
+// panel polls it on a slow timer instead of triggering a React re-render 60x/second.
+const vehicleRegistry = new Map<string, VehicleStats>();
+
+interface SelectionCtx { selectedId: string | null; select: (id: string) => void }
+const SelectionContext = createContext<SelectionCtx>({ selectedId: null, select: () => {} });
 
 const MODEL_DIR = '/models/';
 const asset = (name: string) => encodeURI(MODEL_DIR + name);
@@ -193,11 +211,34 @@ function Zone({ position, size, label, color = '#d89825' }: { position: Point; s
   );
 }
 
+const SPEED_DISPLAY_SCALE = 60;
+
 function Truck({ id, start, color }: { id: string; start: number; color: string }) {
   const group = useRef<THREE.Group>(null);
   const [vehicleState, setVehicleState] = useState<VehicleState>('MOVING');
   const progress = useRef(start);
+  const { selectedId, select } = useContext(SelectionContext);
+  const isSelected = selectedId === id;
+
+  const statsRef = useRef<VehicleStats>({
+    id,
+    kind: 'Haul Truck',
+    state: 'MOVING',
+    speedKmh: 0,
+    progress: start,
+    position: ROUTE_CURVE.getPointAt(start % 1),
+    velocity: new THREE.Vector3(),
+  });
+  useEffect(() => {
+    const stats = statsRef.current;
+    vehicleRegistry.set(id, stats);
+    return () => { vehicleRegistry.delete(id); };
+  }, [id]);
+
   useFrame((_, delta) => {
+    const stats = statsRef.current;
+    const prevX = stats.position.x;
+    const prevZ = stats.position.z;
     const point = ROUTE_CURVE.getPointAt(progress.current % 1);
     const distPit = Math.hypot(point.x - PIT_CENTER[0], point.z - PIT_CENTER[1]);
     const distStockpile = Math.hypot(point.x - STOCKPILE_CENTER[0], point.z - STOCKPILE_CENTER[1]);
@@ -210,30 +251,71 @@ function Truck({ id, start, color }: { id: string; start: number; color: string 
       group.current.position.set(point.x, 0, point.z);
       group.current.rotation.y = Math.atan2(tangent.x, tangent.z) + Math.PI;
     }
+    stats.velocity.set(point.x - prevX, 0, point.z - prevZ);
+    stats.position.set(point.x, 0, point.z);
+    stats.state = nextState;
+    stats.progress = progress.current;
+    stats.speedKmh = delta > 0 ? (stats.velocity.length() / delta) * SPEED_DISPLAY_SCALE : 0;
   });
+
+  const onClick = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation();
+    select(id);
+  };
+
   return (
-    <group ref={group}>
+    <group ref={group} onClick={onClick}>
       <Model name={MODELS.dumpTruck} targetSize={4.2} tint={color} />
       <pointLight position={[0, 1.4, -1.6]} color="#e9f4d1" intensity={1.1} distance={5} />
-      <Text position={[0, 2.6, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.42} color={vehicleState === 'MOVING' ? '#c7d7c9' : '#f3a92b'}>{id} / {vehicleState}</Text>
+      <Text position={[0, 2.6, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.42} color={isSelected ? '#66e0ff' : vehicleState === 'MOVING' ? '#c7d7c9' : '#f3a92b'}>{id} / {vehicleState}{isSelected ? ' ●' : ''}</Text>
     </group>
   );
 }
 
 function Bulldozer({ position, phase, label }: { position: Point; phase: number; label: string }) {
   const group = useRef<THREE.Group>(null);
-  useFrame((state) => {
+  const { selectedId, select } = useContext(SelectionContext);
+  const isSelected = selectedId === label;
+
+  const statsRef = useRef<VehicleStats>({
+    id: label,
+    kind: 'Bulldozer',
+    state: 'WORKING',
+    speedKmh: 0,
+    progress: 0,
+    position: new THREE.Vector3(position[0], 0, position[1]),
+    velocity: new THREE.Vector3(),
+  });
+  useEffect(() => {
+    const stats = statsRef.current;
+    vehicleRegistry.set(label, stats);
+    return () => { vehicleRegistry.delete(label); };
+  }, [label]);
+
+  useFrame((state, delta) => {
     if (!group.current) return;
+    const stats = statsRef.current;
+    const prevX = stats.position.x;
+    const prevZ = stats.position.z;
     const x = position[0] + Math.sin(state.clock.elapsedTime * 0.32 + phase) * 2.1;
     const z = position[1] + Math.cos(state.clock.elapsedTime * 0.25 + phase) * 1.3;
     group.current.position.set(x, 0, z);
     group.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.32 + phase) > 0 ? 0.7 : -0.7;
+    stats.velocity.set(x - prevX, 0, z - prevZ);
+    stats.position.set(x, 0, z);
+    stats.speedKmh = delta > 0 ? (stats.velocity.length() / delta) * SPEED_DISPLAY_SCALE : 0;
   });
+
+  const onClick = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation();
+    select(label);
+  };
+
   return (
-    <group ref={group}>
+    <group ref={group} onClick={onClick}>
       <Model name={MODELS.bulldozer} targetSize={3.6} />
       <pointLight position={[0, 1.2, -0.8]} color="#ffeab0" intensity={1.2} distance={4} />
-      <Text position={[0, 2.4, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.4} color="#f2b62e">{label} / WORKING</Text>
+      <Text position={[0, 2.4, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.4} color={isSelected ? '#66e0ff' : '#f2b62e'}>{label} / WORKING{isSelected ? ' ●' : ''}</Text>
     </group>
   );
 }
@@ -293,6 +375,7 @@ const MIN_EYE_HEIGHT = 2.2;
 
 function FreeFlyCamera() {
   const { camera } = useThree();
+  const { selectedId } = useContext(SelectionContext);
   const keys = useRef<Record<string, boolean>>({});
   useEffect(() => {
     camera.lookAt(0, 0, 0);
@@ -309,7 +392,23 @@ function FreeFlyCamera() {
   const forward = useRef(new THREE.Vector3());
   const right = useRef(new THREE.Vector3());
   const move = useRef(new THREE.Vector3());
+  const chaseDir = useRef(new THREE.Vector3(0, 0, 1));
+  const chaseTarget = useRef(new THREE.Vector3());
   useFrame((_, delta) => {
+    // While following a selected vehicle, camera position chases it (world-space, so it works
+    // regardless of the model's own local "forward" axis); mouse-look stays fully user-controlled
+    // since we never touch camera.quaternion here — only PointerLockControls does that.
+    if (selectedId) {
+      const target = vehicleRegistry.get(selectedId);
+      if (target) {
+        if (target.velocity.lengthSq() > 0.0001) chaseDir.current.copy(target.velocity).setY(0).normalize();
+        chaseTarget.current.copy(target.position).addScaledVector(chaseDir.current, -9);
+        chaseTarget.current.y = target.position.y + 6;
+        camera.position.lerp(chaseTarget.current, Math.min(1, delta * 2.4));
+      }
+      return;
+    }
+
     const k = keys.current;
     const speed = (k['ShiftLeft'] || k['ShiftRight'] ? 34 : 16) * delta;
 
@@ -429,6 +528,36 @@ function ContextWatcher({ onLost }: { onLost: () => void }) {
   return null;
 }
 
+function VehiclePanel() {
+  const { selectedId, select } = useContext(SelectionContext);
+  const [, forceTick] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    if (!selectedId) return;
+    const interval = setInterval(forceTick, 180);
+    return () => clearInterval(interval);
+  }, [selectedId]);
+
+  if (!selectedId) return null;
+  const stats = vehicleRegistry.get(selectedId);
+  if (!stats) return null;
+
+  return (
+    <div className="simulation-hud simulation-vehicle-panel">
+      <div className="simulation-vehicle-panel-header">
+        <strong>{stats.id}</strong>
+        <button type="button" className="simulation-retry-btn" onClick={() => select(stats.id)}>Stop Following</button>
+      </div>
+      <div className="simulation-vehicle-panel-row"><span>Type</span><b>{stats.kind}</b></div>
+      <div className="simulation-vehicle-panel-row"><span>Status</span><b>{stats.state}</b></div>
+      <div className="simulation-vehicle-panel-row"><span>Speed</span><b>{stats.speedKmh.toFixed(1)} km/h</b></div>
+      {stats.kind === 'Haul Truck' && (
+        <div className="simulation-vehicle-panel-row"><span>Route progress</span><b>{Math.round(stats.progress * 100)}%</b></div>
+      )}
+      <div className="simulation-vehicle-panel-hint">Camera following · mouse-look still active · Esc to release</div>
+    </div>
+  );
+}
+
 function SimulationLoader({ visible }: { visible: boolean }) {
   const { progress, item } = useProgress();
   return (
@@ -448,6 +577,7 @@ export const SimulationView: React.FC = () => {
   const [ready, setReady] = useState(false);
   const [canvasKey, setCanvasKey] = useState(0);
   const [contextLost, setContextLost] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   useEffect(() => {
     if (!ready && !active && progress >= 100) {
       const timeout = setTimeout(() => setReady(true), 300);
@@ -455,38 +585,54 @@ export const SimulationView: React.FC = () => {
     }
   }, [active, progress, ready]);
 
+  const select = useCallback((id: string) => {
+    setSelectedId((current) => (current === id ? null : id));
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code === 'Escape') setSelectedId(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   const handleContextLost = () => setContextLost(true);
   const handleRetry = () => {
     setContextLost(false);
     setReady(false);
+    setSelectedId(null);
     setCanvasKey((k) => k + 1);
   };
 
   return (
-    <div className="simulation-view" id="simulation-canvas-root">
-      <Canvas key={canvasKey} camera={{ position: [0, 55, 52], fov: 55 }} dpr={[1, 1.5]}>
-        <Suspense fallback={null}>
-          <SimulationScene onContextLost={handleContextLost} />
-        </Suspense>
-      </Canvas>
-      {ready && !contextLost && (
-        <>
-          <div className="simulation-hud simulation-hud-top"><div><span className="simulation-live-dot" /> DEMO / AUTONOMOUS OPERATIONS</div><span className="simulation-clock">NIGHT SHIFT  ·  23:48:16</span></div>
-          <div className="simulation-hud simulation-legend"><strong>SITE PULSE</strong><span><b className="status-green" /> 06 VEHICLES ACTIVE</span><span><b className="status-amber" /> 16 WORKERS IN FIELD</span><span><b className="status-blue" /> ROUTES ONLINE</span></div>
-          <div className="simulation-zone-note"><span>LIVE MAP</span><strong>OPERATIONAL DENSITY 86%</strong><small>All sectors reporting · 22 entities moving</small></div>
-          <div className="simulation-hud simulation-nav-hint">CLICK SCENE · MOUSE LOOK · WASD MOVE · SHIFT SPRINT · SPACE / CTRL UP-DOWN · ESC RELEASE</div>
-        </>
-      )}
-      <SimulationLoader visible={!ready && !contextLost} />
-      {contextLost && (
-        <div className="simulation-loader">
-          <div className="simulation-loader-panel">
-            <div className="simulation-loader-title">3D view lost the graphics context</div>
-            <div className="simulation-loader-meta">This usually means the GPU ran low on memory.</div>
-            <button type="button" className="simulation-retry-btn" onClick={handleRetry}>Retry</button>
+    <SelectionContext.Provider value={{ selectedId, select }}>
+      <div className="simulation-view" id="simulation-canvas-root">
+        <Canvas key={canvasKey} camera={{ position: [0, 55, 52], fov: 55 }} dpr={[1, 1.5]}>
+          <Suspense fallback={null}>
+            <SimulationScene onContextLost={handleContextLost} />
+          </Suspense>
+        </Canvas>
+        {ready && !contextLost && (
+          <>
+            <div className="simulation-hud simulation-hud-top"><div><span className="simulation-live-dot" /> DEMO / AUTONOMOUS OPERATIONS</div><span className="simulation-clock">NIGHT SHIFT  ·  23:48:16</span></div>
+            <div className="simulation-hud simulation-legend"><strong>SITE PULSE</strong><span><b className="status-green" /> 06 VEHICLES ACTIVE</span><span><b className="status-amber" /> 16 WORKERS IN FIELD</span><span><b className="status-blue" /> ROUTES ONLINE</span></div>
+            <div className="simulation-zone-note"><span>LIVE MAP</span><strong>OPERATIONAL DENSITY 86%</strong><small>All sectors reporting · 22 entities moving</small></div>
+            <div className="simulation-hud simulation-nav-hint">CLICK SCENE · MOUSE LOOK · WASD MOVE · CLICK A VEHICLE TO FOLLOW · ESC RELEASE</div>
+            <VehiclePanel />
+          </>
+        )}
+        <SimulationLoader visible={!ready && !contextLost} />
+        {contextLost && (
+          <div className="simulation-loader">
+            <div className="simulation-loader-panel">
+              <div className="simulation-loader-title">3D view lost the graphics context</div>
+              <div className="simulation-loader-meta">This usually means the GPU ran low on memory.</div>
+              <button type="button" className="simulation-retry-btn" onClick={handleRetry}>Retry</button>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </SelectionContext.Provider>
   );
 };

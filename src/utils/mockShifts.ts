@@ -1,4 +1,4 @@
-import { ShiftRecord } from './scoring';
+import type { ShiftRecord } from './scoring';
 
 export const SIMULATED_SHIFTS: ShiftRecord[] = [
   {

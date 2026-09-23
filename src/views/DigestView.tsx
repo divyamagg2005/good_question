@@ -5,9 +5,7 @@ import {
   User,
   Users,
   TrendingUp,
-  ShieldCheck,
   CheckCircle2,
-  FileCheck,
 } from 'lucide-react';
 import { LeaderboardWorkspace } from './LeaderboardWorkspace';
 
@@ -16,7 +14,6 @@ export const DigestView: React.FC = () => {
     operatorName,
     operatorId,
     machineId,
-    telemetry,
     completedTasksHistory,
     safetyEvents,
     activeTask,
@@ -25,7 +22,6 @@ export const DigestView: React.FC = () => {
   } = useOperatorStore();
 
   const [activeTab, setActiveTab] = useState<'operator' | 'supervisor'>('operator');
-  const [signedOff, setSignedOff] = useState(false);
 
   const { score } = getReadiness();
 
