@@ -12,6 +12,8 @@ export interface VehicleStats {
   progress: number;
   position: THREE.Vector3;
   velocity: THREE.Vector3;
+  /** Label for `progress` in the follow panel (defaults to route progress). */
+  progressLabel?: string;
 }
 
 // Live vehicle telemetry lives outside React state (it changes every animation frame) — the side

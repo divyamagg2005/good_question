@@ -140,7 +140,7 @@ export const DigestView: React.FC = () => {
             {/* Sparkline / Bar Graph */}
             <div
               style={{
-                height: '110px',
+                height: '150px',
                 background: 'rgba(0,0,0,0.25)',
                 borderRadius: '8px',
                 padding: '16px 20px',
@@ -151,7 +151,8 @@ export const DigestView: React.FC = () => {
               }}
             >
               {readinessTrendPoints.map((pt, pidx) => {
-                const heightPct = (pt.score / 100) * 80;
+                // Scale from a 40 baseline so a few points of difference is still visible.
+                const heightPct = Math.max(8, Math.min(100, 20 + ((pt.score - 40) / 60) * 80));
                 const barColor =
                   pt.score >= 85
                     ? 'var(--safety-green)'
@@ -175,16 +176,18 @@ export const DigestView: React.FC = () => {
                     <span className="mono-num" style={{ fontSize: '10px', fontWeight: 800, color: barColor }}>
                       {pt.score}
                     </span>
-                    <div
-                      style={{
-                        width: '100%',
-                        maxWidth: '28px',
-                        height: `${heightPct}%`,
-                        background: barColor,
-                        borderRadius: '4px',
-                        transition: 'height 0.4s ease',
-                      }}
-                    />
+                    <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                      <div
+                        style={{
+                          width: '100%',
+                          maxWidth: '28px',
+                          height: `${heightPct}%`,
+                          background: barColor,
+                          borderRadius: '4px',
+                          transition: 'height 0.4s ease',
+                        }}
+                      />
+                    </div>
                     <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{pt.time}</span>
                   </div>
                 );

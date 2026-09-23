@@ -124,13 +124,16 @@ function ProximityRing({ assessment }: { assessment: Assessment | null }) {
       {(assessment?.proximity_view ?? []).map((o) => {
         const [x, y] = polar(o.distance_m, o.bearing_deg);
         const color = ZONE_COLOR[o.zone] ?? '#9fb3ad';
+        const tag = `${o.object_id} ${o.distance_m.toFixed(1)}m`;
+        // Flip the tag to the left of the blip only when it would run past the ring's edge.
+        const flip = x + 8 + tag.length * 6.5 > size - 4;
         return (
           <g key={o.object_id}>
             {o.zone === 'red' && <circle cx={x} cy={y} r={10} fill="none" stroke={color} className="cab-ring-pulse" />}
             {o.object_type === 'person'
               ? <circle cx={x} cy={y} r={5} fill={color} stroke={o.in_blind_spot ? '#fff' : 'none'} strokeWidth={1.5} />
               : <rect x={x - 6} y={y - 4} width={12} height={8} fill={color} stroke={o.in_blind_spot ? '#fff' : 'none'} />}
-            <text x={x + 8} y={y - 6} className="cab-ring-tag" fill={color}>{o.object_id} {o.distance_m.toFixed(1)}m</text>
+            <text x={flip ? x - 8 : x + 8} y={y < 22 ? y + 16 : y - 6} textAnchor={flip ? 'end' : 'start'} className="cab-ring-tag" fill={color}>{tag}</text>
           </g>
         );
       })}
@@ -155,7 +158,7 @@ export function CabPanel() {
   // Glanceable-only while the machine is moving or working (spec section 10).
   const operating = Math.abs(e.speedMs) > 0.01 || (e.workMode !== 'idle' && e.workMode !== 'break');
   const score = assessment?.readiness_score ?? null;
-  const age = assessment ? Math.round((now - assessmentAt) / 1000) : null;
+  const age = assessment ? Math.max(0, Math.round((now - assessmentAt) / 1000)) : null;
   const prediction = assessment?.task_prediction;
 
   return (

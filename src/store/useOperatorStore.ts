@@ -261,9 +261,18 @@ const LESSON_RAIN_SLOPE: MicroLesson = {
   completed: false,
 };
 
+const DESTINATIONS: NavigationDestination[] = ['today', 'safety', 'training', 'insights', 'digest'];
+
+// Start on the view named in the URL hash so deep links and refreshes land on the right page.
+function initialDestination(): NavigationDestination {
+  if (typeof window === 'undefined') return 'today';
+  const hash = window.location.hash.replace('#/', '').replace('#', '') as NavigationDestination;
+  return DESTINATIONS.includes(hash) ? hash : 'today';
+}
+
 export const useOperatorStore = create<OperatorStoreState>((set, get) => ({
   // Navigation & Shell
-  currentDestination: 'today',
+  currentDestination: initialDestination(),
   theme: 'night',
   isDirectorOpen: false,
   isIncidentDrawerOpen: false,

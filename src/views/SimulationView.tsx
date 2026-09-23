@@ -327,20 +327,34 @@ function RoamingWorker() {
 }
 
 const MIN_EYE_HEIGHT = 2.2;
+// Default overview framing the IronSense excavator work area.
+const HOME_VIEW = { position: [24, 24, 64] as [number, number, number], target: [14, 0, 34] as [number, number, number] };
+const RESET_VIEW_EVENT = 'simulation-reset-view';
 
 function FreeFlyCamera() {
   const { camera } = useThree();
   const { selectedId } = useContext(SelectionContext);
   const keys = useRef<Record<string, boolean>>({});
   useEffect(() => {
-    camera.lookAt(14, 0, 34);
-    const down = (event: KeyboardEvent) => { keys.current[event.code] = true; };
+    const resetView = () => {
+      camera.position.set(...HOME_VIEW.position);
+      camera.lookAt(...HOME_VIEW.target);
+    };
+    resetView();
+    const typing = (event: KeyboardEvent) => ['INPUT', 'SELECT', 'TEXTAREA'].includes((event.target as HTMLElement | null)?.tagName ?? '');
+    const down = (event: KeyboardEvent) => {
+      if (typing(event)) return;
+      keys.current[event.code] = true;
+      if (event.code === 'KeyR') resetView();
+    };
     const up = (event: KeyboardEvent) => { keys.current[event.code] = false; };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
+    window.addEventListener(RESET_VIEW_EVENT, resetView);
     return () => {
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
+      window.removeEventListener(RESET_VIEW_EVENT, resetView);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -464,7 +478,7 @@ function SimulationScene({ onContextLost, onLockChange }: { onContextLost: () =>
       <SimWorld />
       <FreeFlyCamera />
       <ContextWatcher onLost={onContextLost} />
-      <CenterClickSelector />
+      <HybridPointerCompute />
       <PointerLockStatus onChange={onLockChange} />
     </>
   );
@@ -486,26 +500,23 @@ function ContextWatcher({ onLost }: { onLost: () => void }) {
   return null;
 }
 
-// Pointer Lock freezes clientX/clientY at whatever they were when the lock engaged, so
-// react-three-fiber's normal pointer-position raycasting can't tell what's under the (now hidden)
-// OS cursor. While locked, aim is always screen-center (the crosshair) — raycast from there.
-function CenterClickSelector() {
-  const { camera, raycaster, gl } = useThree();
-  const { select } = useContext(SelectionContext);
+// drei's PointerLockControls forces every R3F raycast to screen-center, even while the pointer is
+// NOT locked, so clicking a vehicle under the visible cursor would hit whatever is at the center.
+// Restore cursor-based picking when unlocked; keep center (crosshair) picking while locked, since
+// Pointer Lock freezes clientX/clientY. Must mount after PointerLockControls so this compute wins.
+function HybridPointerCompute() {
+  const setEvents = useThree((state) => state.setEvents);
   useEffect(() => {
-    const canvas = gl.domElement;
-    const onClick = () => {
-      if (document.pointerLockElement !== canvas) return;
-      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-      const hits = raycaster.intersectObjects(clickableObjects, true);
-      if (hits.length === 0) return;
-      let obj: THREE.Object3D | null = hits[0].object;
-      while (obj && !obj.userData.vehicleId) obj = obj.parent;
-      if (obj?.userData.vehicleId) select(obj.userData.vehicleId as string);
-    };
-    canvas.addEventListener('click', onClick);
-    return () => canvas.removeEventListener('click', onClick);
-  }, [camera, raycaster, gl, select]);
+    setEvents({
+      compute(event, state) {
+        const locked = document.pointerLockElement === state.gl.domElement;
+        const x = locked ? state.size.width / 2 : (event as PointerEvent).offsetX;
+        const y = locked ? state.size.height / 2 : (event as PointerEvent).offsetY;
+        state.pointer.set((x / state.size.width) * 2 - 1, -(y / state.size.height) * 2 + 1);
+        state.raycaster.setFromCamera(state.pointer, state.camera);
+      },
+    });
+  }, [setEvents]);
   return null;
 }
 
@@ -543,7 +554,7 @@ function VehiclePanel() {
       <div className="simulation-vehicle-panel-row"><span>Status</span><b>{stats.state}</b></div>
       <div className="simulation-vehicle-panel-row"><span>Speed</span><b>{stats.speedKmh.toFixed(1)} km/h</b></div>
       {stats.kind === 'Haul Truck' && (
-        <div className="simulation-vehicle-panel-row"><span>Route progress</span><b>{Math.round(stats.progress * 100)}%</b></div>
+        <div className="simulation-vehicle-panel-row"><span>{stats.progressLabel ?? 'Route progress'}</span><b>{Math.round(stats.progress * 100)}%</b></div>
       )}
       <div className="simulation-vehicle-panel-hint">Camera following · mouse-look still active · Esc to release</div>
     </div>
@@ -615,7 +626,7 @@ export const SimulationView: React.FC = () => {
   return (
     <SelectionContext.Provider value={{ selectedId, select }}>
       <div className="simulation-view" id="simulation-canvas-root">
-        <Canvas key={canvasKey} camera={{ position: [24, 24, 64], fov: 55 }} dpr={[1, 1.5]}>
+        <Canvas key={canvasKey} camera={{ position: HOME_VIEW.position, fov: 55 }} dpr={[1, 1.5]}>
           <Suspense fallback={null}>
             <SimulationScene onContextLost={handleContextLost} onLockChange={setLocked} />
           </Suspense>
@@ -624,7 +635,7 @@ export const SimulationView: React.FC = () => {
         {ready && !contextLost && (
           <>
             <SimTopBar />
-            <div className="simulation-hud simulation-nav-hint">MOUSE LOOK · WASD MOVE · CLICK VEHICLE TO FOLLOW · ESC RELEASE</div>
+            <div className="simulation-hud simulation-nav-hint">MOUSE LOOK · WASD MOVE · CLICK VEHICLE TO FOLLOW · R RESET VIEW · ESC RELEASE</div>
             <SimConsole />
             <CabPanel />
             <CabAlertLayer />

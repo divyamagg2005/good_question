@@ -167,7 +167,7 @@ export function SimConsole() {
               <button type="button" className="sim-btn" disabled={!running || e.refuelling} onClick={() => sim.refuel()}>{e.refuelling ? 'Refuelling…' : 'Refuel'}</button>
             </div>
             <div className="sim-status-line">
-              <span>{snap.engineState.toUpperCase()} · {e.workMode.toUpperCase()}</span>
+              <span>{snap.engineState.toUpperCase()} · {e.workMode.replace('_', ' ').toUpperCase()}</span>
               <span>{Math.round(e.rpm)} RPM · {(Math.abs(e.speedMs) * 3.6).toFixed(1)} KM/H</span>
             </div>
             <div className="sim-status-line">
@@ -198,6 +198,7 @@ export function SimConsole() {
                   key={s.id}
                   type="button"
                   title={s.blurb}
+                  aria-label={`Scenario ${s.id}: ${s.title}`}
                   disabled={!running}
                   className={`sim-scenario${snap.scenario?.id === s.id ? ' sim-scenario-active' : ''}`}
                   onClick={() => sim.runScenario(s.id)}

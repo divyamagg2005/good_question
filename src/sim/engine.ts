@@ -39,6 +39,10 @@ const TURN_DPS = 20;
 const TANK_L = 410;
 const BUCKET_CAPACITY_KG = 1650;
 const SOIL_KG_PER_M3 = 1800;
+// Task volume is measured in bank (in-situ) m³; excavated soil swells ~30% in the bucket.
+const SWELL_FACTOR = 1.3;
+const TRIM_EVERY_CYCLES = 5;
+const TRIM_SECONDS = 90;
 const TRUCK_CAPACITY_KG = 9000;
 
 // ---------------------------------------------------------------- helpers
@@ -124,7 +128,7 @@ interface ScenarioRun {
 
 // ---------------------------------------------------------------- world entities
 
-export type Phase = 'dig' | 'swing_loaded' | 'dump' | 'swing_empty' | 'wait';
+export type Phase = 'dig' | 'swing_loaded' | 'dump' | 'swing_empty' | 'wait' | 'grade';
 
 export interface Excavator {
   x: number;
@@ -357,6 +361,9 @@ export class SimEngine {
   private fuelTheftUntil: number | null = null;
   private refuelLitres = 0;
   private restartAfterRefuel = false;
+  private cyclesSinceTrim = 0;
+  private trimPending = false;
+  private trimTime = 0;
 
   private taskIndex = -1;
   private taskActive = false;
@@ -449,6 +456,9 @@ export class SimEngine {
     this.collisionCooldown.clear();
     this.harshArmed = true;
     this.fastSwingCycles = 0;
+    this.cyclesSinceTrim = 0;
+    this.trimPending = false;
+    this.trimTime = 0;
     this.truckDelayed = false;
     this.waitStartTick = null;
     this.coolantOverride = null;
@@ -631,7 +641,7 @@ export class SimEngine {
       case 'dig': {
         e.swingDeg = moveAngle(e.swingDeg, 0, this.cycleSwingMax * dt);
         e.bucketHeightM = approach(e.bucketHeightM, -1.7, 1.3 * dt);
-        if (e.bucketHeightM < -1) e.payloadKg = Math.min(this.cycleTargetPayload, e.payloadKg + (this.cycleTargetPayload / 4.5) * dt);
+        if (e.bucketHeightM < -1) e.payloadKg = Math.min(this.cycleTargetPayload, e.payloadKg + (this.cycleTargetPayload / 8) * dt);
         if (e.payloadKg >= this.cycleTargetPayload) {
           this.cycleDumpTo = truckReady ? 'truck' : 'spoil';
           e.phase = 'swing_loaded';
@@ -649,7 +659,7 @@ export class SimEngine {
         const dumped = Math.min(e.payloadKg, (this.cycleTargetPayload / 2.2) * dt);
         e.payloadKg -= dumped;
         if (this.cycleDumpTo === 'truck' && this.truck.state === 'loading') this.truck.loadKg += dumped;
-        this.volumeMovedM3 += dumped / SOIL_KG_PER_M3;
+        this.volumeMovedM3 += dumped / (SOIL_KG_PER_M3 * SWELL_FACTOR);
         if (e.payloadKg <= 0.5) {
           e.payloadKg = 0;
           e.loadCycles += 1;
@@ -665,10 +675,22 @@ export class SimEngine {
           if (this.truckDelayed && !truckReady) {
             e.phase = 'wait';
             this.waitStartTick = this.tick;
+          } else if (this.trimPending) {
+            // Periodically trim/grade the trench floor between bucket passes.
+            this.trimPending = false;
+            this.trimTime = 0;
+            e.phase = 'grade';
           } else {
             this.beginDig();
           }
         }
+        break;
+      }
+      case 'grade': {
+        this.trimTime += dt;
+        e.swingDeg = moveAngle(e.swingDeg, Math.sin(this.trimTime * 0.25) * 8, 10 * dt);
+        e.bucketHeightM = approach(e.bucketHeightM, -1.4 + Math.sin(this.trimTime * 0.6) * 0.25, 0.8 * dt);
+        if (this.trimTime >= TRIM_SECONDS) this.beginDig();
         break;
       }
       case 'wait': {
@@ -684,10 +706,15 @@ export class SimEngine {
   private beginDig() {
     this.exc.phase = 'dig';
     this.cycleTargetPayload = BUCKET_CAPACITY_KG * (0.82 + this.rng() * 0.18);
-    this.cycleSwingMax = this.fastSwingCycles > 0 ? 68 : 24 + this.rng() * 6;
+    this.cycleSwingMax = this.fastSwingCycles > 0 ? 68 : 18 + this.rng() * 5;
   }
 
   private onCycleComplete() {
+    this.cyclesSinceTrim += 1;
+    if (this.cyclesSinceTrim >= TRIM_EVERY_CYCLES) {
+      this.cyclesSinceTrim = 0;
+      this.trimPending = true;
+    }
     if (this.fastSwingCycles > 0) {
       this.fastSwingCycles -= 1;
       if (this.fastSwingCycles === 0 && this.scenario?.id === 8) {

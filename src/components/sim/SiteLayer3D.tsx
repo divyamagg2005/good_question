@@ -204,8 +204,10 @@ function SimPerson({ index, id, role }: { index: number; id: string; role: strin
   return (
     <group ref={group}>
       <Model name={role === 'spotter' ? MODELS.workerWave : role === 'surveyor' ? MODELS.workerInteract : MODELS.workerWalk} targetSize={0.95} />
-      <mesh rotation-x={-Math.PI / 2} position-y={0.04}><ringGeometry args={[0.32, 0.42, 24]} /><meshBasicMaterial color="#ff8a1f" transparent opacity={0.9} /></mesh>
-      <Text position={[0, 1.35, 0]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.3} color="#ffb347">{id} · {role.toUpperCase()}</Text>
+      <mesh rotation-x={-Math.PI / 2} position-y={0.04}><ringGeometry args={[0.45, 0.6, 24]} /><meshBasicMaterial color="#ff8a1f" transparent opacity={0.9} /></mesh>
+      {/* Hi-vis marker so people stay visible from the overview camera. */}
+      <mesh position-y={1.55} rotation-x={Math.PI}><coneGeometry args={[0.42, 0.75, 12]} /><meshBasicMaterial color="#ff8a1f" /></mesh>
+      <Text position={[0, 2.35, 0]} fontSize={0.55} color="#ffb347" outlineWidth={0.03} outlineColor="#1a0f05">{id} · {role.toUpperCase()}</Text>
     </group>
   );
 }
@@ -220,7 +222,7 @@ export function SimTruck() {
   const display = useRef({ x: 0, z: 0, h: 0, init: false, visible: false });
   const { selectedId, select } = useContext(SelectionContext);
   const statsRef = useRef<VehicleStats>({
-    id: 'TRK02', kind: 'Haul Truck', state: 'LOADING', speedKmh: 0, progress: 0, position: new THREE.Vector3(), velocity: new THREE.Vector3(),
+    id: 'TRK02', kind: 'Haul Truck', state: 'LOADING', speedKmh: 0, progress: 0, position: new THREE.Vector3(), velocity: new THREE.Vector3(), progressLabel: 'Load',
   });
   useEffect(() => {
     const stats = statsRef.current;
@@ -246,11 +248,18 @@ export function SimTruck() {
     group.current.position.set(d.x, 0, d.z);
     group.current.rotation.y = -d.h;
     const stats = statsRef.current;
+    stats.progress = Math.min(1, t.loadKg / 9000);
+    if (!t.visible) {
+      // Off-site between loads: keep the last on-site position so a follow camera doesn't fly into the void.
+      stats.velocity.set(0, 0, 0);
+      stats.speedKmh = 0;
+      stats.state = 'OFF-SITE (HAULING)';
+      return;
+    }
     stats.velocity.set(d.x - prevX, 0, d.z - prevZ);
     stats.position.set(d.x, 0, d.z);
     stats.speedKmh = t.speedMs * 3.6;
     stats.state = t.state.toUpperCase();
-    stats.progress = Math.min(1, t.loadKg / 9000);
   });
   const onClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
@@ -346,7 +355,12 @@ function Trench() {
     <group>
       <mesh rotation-x={-Math.PI / 2} position={[cx, 0.045, cz]}>
         <planeGeometry args={[(TRENCH.x1 - TRENCH.x0) * U, TRENCH.width * U]} />
-        <meshStandardMaterial color="#140e0a" roughness={1} />
+        <meshBasicMaterial color="#0a0604" />
+      </mesh>
+      {/* spoil lip along the far side of the trench */}
+      <mesh position={[cx, 0.15, cz - TRENCH.width * U * 0.5 - 0.25]}>
+        <boxGeometry args={[(TRENCH.x1 - TRENCH.x0) * U, 0.3, 0.45]} />
+        <meshStandardMaterial color="#6b5033" roughness={1} />
       </mesh>
       <primitive object={edge} />
       <Text position={[cx - 6, 0.3, cz - 1.3]} rotation={[-Math.PI / 2, 0, 0]} fontSize={0.55} color="#ff6b5b">TR01 · TRENCH EDGE</Text>
@@ -468,10 +482,15 @@ export function WeatherFx() {
   const geometry = useMemo(() => {
     const g = new THREE.BufferGeometry();
     const positions = new Float32Array(RAIN_COUNT * 3);
+    // Deterministic hash scatter (no Math.random in render) that doesn't line up into columns.
+    const hash = (n: number) => {
+      const x = Math.sin(n * 12.9898) * 43758.5453;
+      return x - Math.floor(x);
+    };
     for (let i = 0; i < RAIN_COUNT; i += 1) {
-      positions[i * 3] = (i * 7.31) % 60 - 30;
-      positions[i * 3 + 1] = (i * 3.17) % 26;
-      positions[i * 3 + 2] = (i * 11.7) % 60 - 30;
+      positions[i * 3] = hash(i + 0.1) * 60 - 30;
+      positions[i * 3 + 1] = hash(i + 0.5) * 26;
+      positions[i * 3 + 2] = hash(i + 0.9) * 60 - 30;
     }
     g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     return g;
@@ -529,7 +548,7 @@ export function WeatherFx() {
       <directionalLight ref={daylight} position={[30, 60, 20]} intensity={0} color="#fff4de" />
       <ambientLight ref={skyFill} intensity={0} color="#cfe0ea" />
       <points ref={rain} geometry={geometry} visible={false}>
-        <pointsMaterial color="#9fc4d8" size={0.09} transparent opacity={0.55} depthWrite={false} />
+        <pointsMaterial color="#b8d8ea" size={2} sizeAttenuation={false} transparent opacity={0.7} depthWrite={false} />
       </points>
     </>
   );
