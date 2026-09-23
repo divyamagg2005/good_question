@@ -1,0 +1,60 @@
+
+/* Responsive Adjustments */
+@media (max-width: 1024px) {
+  /* Collapse Rail */
+  #main-rail {
+    flex-direction: row !important;
+    width: 100% !important;
+    height: 72px !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--cockpit-glass-border) !important;
+    padding: 0 16px !important;
+  }
+  
+  #main-nav {
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+  }
+
+  #main-layout {
+    flex-direction: column !important;
+  }
+
+  /* Grid fallbacks for Views */
+  .grid-2-col {
+    grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .responsive-stack {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+  }
+  
+  .responsive-stack > div {
+    min-height: auto !important;
+    flex: auto !important;
+  }
+}
+
+@media (max-width: 768px) {
+  #main-nav button span {
+    display: none !important; /* Hide text on mobile nav */
+  }
+  #telemetry-rail {
+    flex-direction: column !important;
+    height: auto !important;
+  }
+  #telemetry-rail > div {
+    width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  /* Horizontal scroll for table */
+  .table-container {
+    overflow-x: auto;
+    width: 100%;
+  }
+}

@@ -46,6 +46,7 @@ export const TodayView: React.FC = () => {
     >
       {/* Scrollable Cockpit Grid */}
       <div
+        className="grid-2-col"
         style={{
           flex: 1,
           overflowY: 'auto',

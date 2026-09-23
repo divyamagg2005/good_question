@@ -44,6 +44,7 @@ export const SafetyView: React.FC = () => {
 
   return (
     <div
+      className="responsive-stack"
       style={{
         display: 'flex',
         flex: 1,

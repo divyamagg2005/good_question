@@ -15,6 +15,7 @@ export const InsightsView: React.FC = () => {
 
   return (
     <div
+      className="responsive-stack"
       style={{
         display: 'flex',
         flex: 1,
