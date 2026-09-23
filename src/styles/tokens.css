@@ -1,0 +1,108 @@
+/* Industrial Glassmorphism Cockpit Design Tokens */
+
+:root {
+  /* Cockpit Graphite & Glass Surfaces */
+  --cockpit-bg: #090c10;
+  --cockpit-surface: #0f141c;
+  --cockpit-panel-bg: rgba(18, 25, 38, 0.72);
+  --cockpit-panel-hover: rgba(26, 35, 52, 0.82);
+  --cockpit-card-bg: rgba(14, 20, 30, 0.65);
+  --cockpit-glass-border: rgba(255, 255, 255, 0.09);
+  --cockpit-glass-border-focus: rgba(255, 184, 0, 0.45);
+  --cockpit-glass-border-blue: rgba(14, 165, 233, 0.45);
+  --cockpit-glass-border-red: rgba(239, 68, 68, 0.45);
+  --cockpit-blur: blur(16px);
+  --cockpit-inner-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.08);
+
+  /* Caterpillar Safety Yellow Focal Colors */
+  --cat-yellow: #ffb800;
+  --cat-yellow-bright: #ffc425;
+  --cat-yellow-dark: #d97706;
+  --cat-yellow-surface: #ffb800;
+  --cat-yellow-text: #0d1117;
+  --cat-yellow-glow: rgba(255, 184, 0, 0.25);
+
+  /* Electric Guidance & Training Blue */
+  --electric-blue: #0ea5e9;
+  --electric-blue-light: #38bdf8;
+  --electric-blue-dark: #0284c7;
+  --electric-blue-surface: rgba(14, 165, 233, 0.12);
+  --electric-blue-glow: rgba(14, 165, 233, 0.25);
+
+  /* Semantic Safety Status Colors */
+  --safety-green: #10b981;
+  --safety-green-glow: rgba(16, 185, 129, 0.25);
+  --safety-green-surface: rgba(16, 185, 129, 0.12);
+
+  --safety-amber: #f59e0b;
+  --safety-amber-glow: rgba(245, 158, 11, 0.25);
+  --safety-amber-surface: rgba(245, 158, 11, 0.12);
+
+  --safety-red: #ef4444;
+  --safety-red-glow: rgba(239, 68, 68, 0.35);
+  --safety-red-surface: rgba(239, 68, 68, 0.15);
+
+  /* Industrial Typography & Text Tokens */
+  --text-primary: #f0f4f8;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-dark: #0d1117;
+
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, ui-monospace, monospace;
+
+  /* Component Layout & Touch Targets */
+  --touch-min: 48px;
+  --rail-width: 76px;
+  --header-height: 58px;
+  --telemetry-height: 72px;
+  --border-radius-sm: 6px;
+  --border-radius-md: 10px;
+  --border-radius-lg: 14px;
+  --border-radius-xl: 18px;
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* High-Contrast Day Mode (For Direct Sunlight Cab Visibility) */
+[data-theme='day'] {
+  --cockpit-bg: #dce3ea;
+  --cockpit-surface: #edf1f5;
+  --cockpit-panel-bg: rgba(255, 255, 255, 0.88);
+  --cockpit-panel-hover: rgba(255, 255, 255, 0.98);
+  --cockpit-card-bg: rgba(240, 244, 248, 0.9);
+  --cockpit-glass-border: rgba(15, 23, 42, 0.12);
+  --cockpit-glass-border-focus: rgba(217, 119, 6, 0.6);
+  --cockpit-glass-border-blue: rgba(2, 132, 199, 0.6);
+  --cockpit-glass-border-red: rgba(220, 38, 38, 0.6);
+  --cockpit-inner-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.6);
+
+  --cat-yellow: #e69d00;
+  --cat-yellow-bright: #f59e0b;
+  --cat-yellow-dark: #b45309;
+  --cat-yellow-surface: #f59e0b;
+  --cat-yellow-text: #0f172a;
+  --cat-yellow-glow: rgba(245, 158, 11, 0.35);
+
+  --electric-blue: #0284c7;
+  --electric-blue-light: #0369a1;
+  --electric-blue-dark: #075985;
+  --electric-blue-surface: rgba(2, 132, 199, 0.15);
+  --electric-blue-glow: rgba(2, 132, 199, 0.25);
+
+  --safety-green: #059669;
+  --safety-green-surface: rgba(5, 150, 105, 0.15);
+
+  --safety-amber: #d97706;
+  --safety-amber-surface: rgba(217, 119, 6, 0.15);
+
+  --safety-red: #dc2626;
+  --safety-red-surface: rgba(220, 38, 38, 0.18);
+
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-dark: #0f172a;
+}
