@@ -43,16 +43,10 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
     maxSafeSlopeDeg,
     safetyEvents,
     acknowledgeEvent,
-    tickSimulation,
+    backendLinked,
+    simStatus,
+    light,
   } = useOperatorStore();
-
-  // Run 1Hz deterministic simulation tick
-  useEffect(() => {
-    const timer = setInterval(() => {
-      tickSimulation();
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [tickSimulation]);
 
   // Global keyboard shortcut Ctrl+Shift+D for Director Console
   useEffect(() => {
@@ -66,8 +60,8 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleDirector]);
 
-  // Find any unacknowledged critical or violation alerts
-  const criticalAlert = safetyEvents.find((e) => !e.acknowledged && (e.severity === 'critical' || e.severity === 'violation'));
+  // Unacknowledged, still-active critical/violation alert from the backend (shared with the 3D cab panel).
+  const criticalAlert = safetyEvents.find((e) => !e.acknowledged && !e.resolved && (e.severity === 'critical' || e.severity === 'violation'));
 
   const navItems: { id: NavigationDestination; label: string; icon: React.ReactNode }[] = [
     { id: 'today', label: 'Today', icon: <LayoutDashboard size={22} /> },
@@ -79,13 +73,16 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
   const getWeatherIcon = () => {
     switch (weather) {
-      case 'rain':
+      case 'Rainy':
+      case 'Storm':
         return <CloudRain size={16} className="text-blue-400" />;
-      case 'dust':
+      case 'Dust':
+      case 'Windy':
         return <Wind size={16} className="text-amber-400" />;
-      case 'darkness':
+      case 'Fog':
+      case 'Cloudy':
         return <CloudFog size={16} className="text-slate-400" />;
-      case 'heat':
+      case 'Extreme Heat':
         return <Flame size={16} className="text-orange-400" />;
       default:
         return <SunMedium size={16} className="text-amber-400" />;
@@ -340,14 +337,14 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
               >
                 {getWeatherIcon()}
                 <span style={{ fontSize: '12px', fontWeight: 600, textTransform: 'capitalize' }}>
-                  {weather}
+                  {weather} · {light}
                 </span>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>• Slope Limit:</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>• Tilt Limit:</span>
                 <span
                   style={{
                     fontSize: '12px',
                     fontWeight: 700,
-                    color: weather === 'rain' ? 'var(--safety-amber)' : 'var(--safety-green)',
+                    color: Math.abs(telemetry.pitchDeg) > maxSafeSlopeDeg ? 'var(--safety-red)' : 'var(--safety-green)',
                   }}
                   className="mono-num"
                 >
@@ -430,23 +427,25 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
               </div>
 
               {/* Connection Status Pill */}
+              {/* Backend link pill: live sockets + measured REST round trip */}
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
                   fontSize: '12px',
-                  color: 'var(--safety-green)',
-                  background: 'rgba(16, 185, 129, 0.1)',
+                  color: backendLinked ? 'var(--safety-green)' : 'var(--safety-amber)',
+                  background: backendLinked ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
                   padding: '6px 12px',
                   borderRadius: '20px',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  border: `1px solid ${backendLinked ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.35)'}`,
                 }}
                 className="mono-num"
+                title={backendLinked ? 'Telemetry and cab sockets connected' : simStatus === 'stopped' ? 'Shift not started — complete the walkaround to connect' : 'Connecting to backend'}
               >
                 <Wifi size={14} />
-                <span style={{ fontWeight: 700 }}>RTK Fixed</span>
-                <span style={{ fontSize: '10px', opacity: 0.8 }}>({telemetry.networkLatencyMs}ms)</span>
+                <span style={{ fontWeight: 700 }}>{backendLinked ? 'Live' : simStatus === 'stopped' ? 'Idle' : 'Connecting'}</span>
+                <span style={{ fontSize: '10px', opacity: 0.8 }}>({telemetry.networkLatencyMs === null ? '—' : `${telemetry.networkLatencyMs}ms`})</span>
               </div>
 
             </div>

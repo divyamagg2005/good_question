@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useOperatorStore } from '../store/useOperatorStore';
+import { useBackendStore } from '../sim/backendApi';
 import type { ProximityTarget, SafetyEvent } from '../types/cockpit';
 import {
   ShieldAlert,
@@ -30,17 +31,30 @@ export const SafetyView: React.FC = () => {
     toggleVoiceMemo,
     togglePhotoProof,
     acknowledgeEvent,
+    dangerRadiusM,
+    cautionRadiusM,
+    zoneReason,
+    sensingRangeM,
+    telemetry,
+    machineModel,
+    visibilityM,
+    groundCondition,
   } = useOperatorStore();
+  const incidents = useBackendStore((s) => s.incidents);
+  const incidentsError = useBackendStore((s) => s.errors.incidents);
 
   const [incidentNotes, setIncidentNotes] = useState('');
 
   const hasRedTarget = proximityTargets.some((t: ProximityTarget) => t.zone === 'red');
 
-  // Dynamic radar radius
+  // One scale for rings and targets: the sensor range fills the radar.
   const radarBaseSize = 340;
-  const redRadius = 55 * proximityMultiplier;
-  const amberRadius = 110 * proximityMultiplier;
-  const greenRadius = 160 * proximityMultiplier;
+  const pxPerM = 170 / sensingRangeM;
+  const redRadius = dangerRadiusM * pxPerM;
+  const amberRadius = cautionRadiusM * pxPerM;
+  const greenRadius = sensingRangeM * pxPerM;
+  const adverse = zoneReason !== null || proximityMultiplier > 1;
+  const compass = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(telemetry.headingDeg / 45) % 8];
 
   return (
     <div
@@ -67,13 +81,8 @@ export const SafetyView: React.FC = () => {
         {/* Conditions Adaptation Banner */}
         <div
           style={{
-            background:
-              weather === 'rain'
-                ? 'rgba(14, 165, 233, 0.15)'
-                : weather === 'dust'
-                ? 'rgba(245, 158, 11, 0.15)'
-                : 'rgba(255, 255, 255, 0.04)',
-            border: `1px solid ${weather === 'rain' ? 'var(--electric-blue)' : 'var(--cockpit-glass-border)'}`,
+            background: adverse ? 'rgba(14, 165, 233, 0.15)' : 'rgba(255, 255, 255, 0.04)',
+            border: `1px solid ${adverse ? 'var(--electric-blue)' : 'var(--cockpit-glass-border)'}`,
             borderRadius: '10px',
             padding: '12px 18px',
             display: 'flex',
@@ -82,17 +91,16 @@ export const SafetyView: React.FC = () => {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Activity size={18} style={{ color: weather === 'rain' ? 'var(--electric-blue-light)' : 'var(--cat-yellow)' }} />
+            <Activity size={18} style={{ color: adverse ? 'var(--electric-blue-light)' : 'var(--cat-yellow)' }} />
             <div>
               <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff' }}>
                 Active Safety Adaptations ({weather.toUpperCase()} CONDITION)
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                {weather === 'rain'
-                  ? 'Wet ground saturated: Slope envelope curtailed from 25° to 15°. Proximity stopping buffer expanded +40%.'
-                  : weather === 'dust'
-                  ? 'Low optical visibility: Proximity radar sensitivity boosted +30% for personnel detection.'
-                  : 'Nominal baseline envelope: Standard 25° slope limit and 5.0m red-zone threshold.'}
+                {zoneReason
+                  ? `Backend widened the zones (${zoneReason}): danger ${dangerRadiusM} m, caution ${cautionRadiusM} m.`
+                  : `Backend zones: danger ${dangerRadiusM} m, caution ${cautionRadiusM} m.`}{' '}
+                Ground {groundCondition}, visibility {visibilityM.toLocaleString()} m, sensors report to {sensingRangeM} m.
               </div>
             </div>
           </div>
@@ -120,7 +128,7 @@ export const SafetyView: React.FC = () => {
                 color: 'var(--text-primary)',
               }}
             >
-              MAX SLOPE: <span className="mono-num" style={{ color: weather === 'rain' ? 'var(--safety-amber)' : 'var(--safety-green)' }}>{maxSafeSlopeDeg}°</span>
+              TILT LIMIT: <span className="mono-num" style={{ color: Math.abs(telemetry.pitchDeg) > maxSafeSlopeDeg ? 'var(--safety-red)' : 'var(--safety-green)' }}>{maxSafeSlopeDeg}°</span>
             </div>
           </div>
         </div>
@@ -169,7 +177,7 @@ export const SafetyView: React.FC = () => {
             }}
           >
             <span style={{ fontSize: '9px', fontWeight: 800, color: 'var(--safety-green)', marginTop: '-8px', background: 'rgba(0,0,0,0.8)', padding: '0 4px' }}>
-              GREEN SAFE ZONE (&gt; 15M)
+              SENSOR RANGE ({sensingRangeM} M)
             </span>
           </div>
 
@@ -189,7 +197,7 @@ export const SafetyView: React.FC = () => {
             }}
           >
             <span style={{ fontSize: '9px', fontWeight: 800, color: 'var(--safety-amber)', marginTop: '-8px', background: 'rgba(0,0,0,0.8)', padding: '0 4px' }}>
-              AMBER CAUTION ZONE (8M–15M)
+              AMBER CAUTION ZONE ({dangerRadiusM}–{cautionRadiusM} M)
             </span>
           </div>
 
@@ -210,7 +218,7 @@ export const SafetyView: React.FC = () => {
             }}
           >
             <span style={{ fontSize: '9px', fontWeight: 900, color: 'var(--safety-red)', marginTop: '-8px', background: 'rgba(0,0,0,0.8)', padding: '0 4px' }}>
-              RED CRITICAL EXCLUSION ZONE (&lt; 5M)
+              RED DANGER ZONE (&lt; {dangerRadiusM} M)
             </span>
           </div>
 
@@ -234,14 +242,14 @@ export const SafetyView: React.FC = () => {
           >
             {/* Tracks */}
             <div style={{ width: '38px', height: '6px', background: '#0d1117', borderRadius: '2px' }} />
-            <div style={{ fontSize: '10px', fontWeight: 900, color: '#0d1117' }}>CAT 336</div>
+            <div style={{ fontSize: '10px', fontWeight: 900, color: '#0d1117' }}>{machineModel.replace('CAT ', '')}</div>
             <div style={{ width: '38px', height: '6px', background: '#0d1117', borderRadius: '2px' }} />
           </div>
 
           {/* Dynamic Radar Targets */}
           {proximityTargets.map((tgt: ProximityTarget) => {
             const rad = (tgt.angleDeg - 90) * (Math.PI / 180);
-            const scaledDist = tgt.distanceM * 7.5;
+            const scaledDist = tgt.distanceM * pxPerM;
             const posX = Math.cos(rad) * scaledDist;
             const posY = Math.sin(rad) * scaledDist;
 
@@ -295,7 +303,7 @@ export const SafetyView: React.FC = () => {
                 >
                   <div>{tgt.name}</div>
                   <div className="mono-num" style={{ color: targetColor, fontWeight: 900 }}>
-                    {tgt.distanceM}m ({tgt.zone.toUpperCase()})
+                    {tgt.distanceM}m · {tgt.angleDeg}° ({tgt.zone.toUpperCase()}{tgt.inBlindSpot ? ' · BLIND SPOT' : ''})
                   </div>
                 </div>
               </div>
@@ -317,7 +325,7 @@ export const SafetyView: React.FC = () => {
             }}
           >
             <Compass size={16} />
-            <span>HEADING 015° NORTH-EAST</span>
+            <span>HEADING {telemetry.headingDeg.toString().padStart(3, '0')}° {compass} · TARGET BEARINGS RELATIVE TO CAB</span>
           </div>
 
           <div
@@ -333,15 +341,15 @@ export const SafetyView: React.FC = () => {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--safety-red)' }} />
-              <span>Red &lt;5m</span>
+              <span>Red &lt;{dangerRadiusM}m</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--safety-amber)' }} />
-              <span>Amber 8-15m</span>
+              <span>Amber {dangerRadiusM}–{cautionRadiusM}m</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--safety-green)' }} />
-              <span>Green &gt;15m</span>
+              <span>Green &gt;{cautionRadiusM}m</span>
             </div>
           </div>
         </div>
@@ -371,6 +379,9 @@ export const SafetyView: React.FC = () => {
             {safetyEvents.length} Recorded
           </span>
         </div>
+        {safetyEvents.length === 0 && (
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No backend alerts this shift. Alerts from the cab socket appear here as they happen.</div>
+        )}
 
         {/* List of events */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -420,7 +431,7 @@ export const SafetyView: React.FC = () => {
                 </div>
 
                 <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                  {evt.reason}
+                  {evt.reason}{evt.resolved ? ' · cleared by backend' : ''}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px' }}>
@@ -467,6 +478,27 @@ export const SafetyView: React.FC = () => {
               </div>
             );
           })}
+        </div>
+
+        {/* Backend incident history (GET /api/incidents) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase' }}>Incident History</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{incidents.length} on record</span>
+        </div>
+        {incidentsError && <div style={{ fontSize: '11px', color: 'var(--safety-amber)' }}>Could not load incidents: {incidentsError}</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {incidents.slice(0, 12).map((inc) => (
+            <div key={inc.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '8px 10px', borderRadius: '6px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--cockpit-glass-border)' }}>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#ffffff' }}>{inc.incident_type.replace(/_/g, ' ')}</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{inc.cause} · {inc.source.replace(/_/g, ' ')}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: inc.severity === 'critical' || inc.severity === 'high' ? 'var(--safety-red)' : inc.severity === 'warning' ? 'var(--safety-amber)' : 'var(--text-secondary)' }}>{inc.severity}</div>
+                <div className="mono-num" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{inc.timestamp.slice(0, 16).replace('T', ' ')}</div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -540,7 +572,7 @@ export const SafetyView: React.FC = () => {
             {/* 30-Second Synchronized Telemetry Snapshot */}
             <div>
               <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>
-                30-Second Black-Box Telemetry Snapshot:
+                Machine Telemetry When Docket Opened:
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '8px 12px', borderRadius: '6px' }}>
@@ -558,7 +590,7 @@ export const SafetyView: React.FC = () => {
                 <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '8px 12px', borderRadius: '6px' }}>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>CLOSEST DISTANCE</div>
                   <div className="mono-num" style={{ fontSize: '14px', fontWeight: 800, color: 'var(--safety-red)' }}>
-                    {activeIncident.telemetrySnapshot.closestObjectDistM} m
+                    {activeIncident.telemetrySnapshot.closestObjectDistM ?? '—'} m
                   </div>
                 </div>
                 <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '8px 12px', borderRadius: '6px' }}>
@@ -607,7 +639,7 @@ export const SafetyView: React.FC = () => {
             {/* Photo / Camera Evidence Simulation Control */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-                Cat 360° Cam Snapshot Evidence:
+                360° Camera Snapshot Evidence:
               </div>
               <button
                 type="button"
@@ -627,10 +659,10 @@ export const SafetyView: React.FC = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Camera size={16} style={{ color: activeIncident.hasPhotoProof ? 'var(--electric-blue)' : 'var(--text-muted)' }} />
                   <span style={{ fontSize: '12px', fontWeight: 700 }}>
-                    {activeIncident.hasPhotoProof ? 'Front Boom Cam #2 Frame Stamped' : 'Capture Camera Frame'}
+                    {activeIncident.hasPhotoProof ? 'Camera frame attached' : 'Capture Camera Frame'}
                   </span>
                 </div>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>ATTACHED</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{activeIncident.hasPhotoProof ? 'ATTACHED' : 'TAP TO ATTACH'}</span>
               </button>
             </div>
 
@@ -659,6 +691,9 @@ export const SafetyView: React.FC = () => {
             </div>
           </div>
 
+          {activeIncident.submitError && (
+            <div style={{ fontSize: '11px', color: 'var(--safety-red)' }}>Report failed: {activeIncident.submitError}</div>
+          )}
           {/* Action buttons */}
           <div style={{ display: 'flex', gap: '10px', paddingTop: '16px' }}>
             <button
@@ -669,7 +704,7 @@ export const SafetyView: React.FC = () => {
               Cancel
             </button>
             <button
-              onClick={() => resolveActiveIncident(incidentNotes)}
+              onClick={() => { void resolveActiveIncident(incidentNotes); }}
               className="cockpit-btn"
               style={{
                 flex: 1.4,
@@ -679,7 +714,7 @@ export const SafetyView: React.FC = () => {
               }}
             >
               <CheckCircle size={16} />
-              Log &amp; Resolve Incident
+              Report to Backend &amp; Resolve
             </button>
           </div>
         </div>

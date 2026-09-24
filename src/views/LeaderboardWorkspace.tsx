@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useOperatorStore } from '../store/useOperatorStore';
+import { useBackendStore } from '../sim/backendApi';
 import { Trophy, AlertTriangle, ChevronRight, Activity, Zap, ShieldAlert } from 'lucide-react';
 
 export const LeaderboardWorkspace: React.FC = () => {
-  const { getRankedShifts, operatorId } = useOperatorStore();
+  const { getRankedShifts, operatorId, operatorName } = useOperatorStore();
+  const profile = useBackendStore((s) => s.profile);
   const rankedShifts = getRankedShifts();
   
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
@@ -21,6 +23,34 @@ export const LeaderboardWorkspace: React.FC = () => {
           </span>
          </div>
       </div>
+      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '-12px' }}>
+        Other operators: demo roster (fleet summary endpoint pending backend deploy)
+      </div>
+
+      {/* Current operator — live profile from GET /api/operators/{id}/profile */}
+      {profile && (
+        <div className="glass-panel" style={{ padding: '16px 20px', border: '1px solid var(--cat-yellow)', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {operatorName} ({profile.operator_id})
+              <span style={{ fontSize: '9px', padding: '2px 4px', background: 'var(--cat-yellow)', color: '#000', borderRadius: '4px' }}>YOU</span>
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              {profile.level} · trend {profile.trend} · as of {profile.as_of}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>SKILL SCORE</div>
+            <div className="mono-num" style={{ fontSize: '20px', fontWeight: 900, color: 'var(--cat-yellow)' }}>{profile.skill_score}</div>
+          </div>
+          {Object.entries(profile.components).map(([k, v]) => (
+            <div key={k}>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{k}</div>
+              <div className="mono-num" style={{ fontSize: '14px', fontWeight: 800, color: v >= 70 ? 'var(--safety-green)' : v >= 50 ? 'var(--safety-amber)' : 'var(--safety-red)' }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: selectedShift ? 'minmax(0, 1.3fr) minmax(0, 0.7fr)' : '1fr', gap: '20px', flex: 1, minHeight: 0 }}>
         

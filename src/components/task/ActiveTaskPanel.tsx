@@ -25,20 +25,24 @@ export const ActiveTaskPanel: React.FC<ActiveTaskPanelProps> = ({ onOpenWalkarou
     toggleTaskPause,
     completeActiveTask,
     logTaskIssue,
+    upcomingQueue,
+    completedTasksHistory,
+    simClock,
   } = useOperatorStore();
 
   const [isLogIssueOpen, setIsLogIssueOpen] = useState(false);
   const [issueNote, setIssueNote] = useState('');
 
   // Format seconds to HH:MM:SS
-  const formatTime = (totalSeconds: number) => {
+  const formatTime = (rawSeconds: number) => {
+    const totalSeconds = Math.floor(rawSeconds);
     const hrs = Math.floor(totalSeconds / 3600);
     const mins = Math.floor((totalSeconds % 3600) / 60);
     const secs = totalSeconds % 60;
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const isPaused = activeTask.status === 'paused';
+  const isPaused = activeTask?.status === 'paused';
 
   const handleLogIssueSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,7 +92,7 @@ export const ActiveTaskPanel: React.FC<ActiveTaskPanelProps> = ({ onOpenWalkarou
               PRE-SHIFT WALKAROUND GATE ACTIVE
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '440px', lineHeight: 1.5 }}>
-              Excavator hydraulics and active operation remain locked until the 6-point walkaround checklist is verified.
+              Complete the 6-point walkaround to start the shift. Signing off starts EXC001 in the simulation and connects its telemetry to the backend.
             </p>
           </div>
           <button
@@ -109,6 +113,21 @@ export const ActiveTaskPanel: React.FC<ActiveTaskPanelProps> = ({ onOpenWalkarou
         </div>
       )}
 
+      {!activeTask && walkaroundCompleted && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minHeight: '260px', justifyContent: 'center' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.06em' }}>SHIFT {simClock ? `· ${simClock.slice(11, 16)} SIM` : ''}</span>
+          <h2 style={{ fontSize: '22px', fontWeight: 900, color: 'var(--cat-yellow-text)' }}>
+            {upcomingQueue.length ? `Next: ${upcomingQueue[0].title}` : completedTasksHistory.length ? 'All planned tasks complete' : 'Waiting for the first task to start'}
+          </h2>
+          <div style={{ fontSize: '13px', fontWeight: 600, opacity: 0.85 }}>
+            {upcomingQueue.length
+              ? `Planned ${upcomingQueue[0].nominalMinutes} min · target ${upcomingQueue[0].volumeM3Target ?? '—'} m³ · starts automatically in the sim`
+              : `${completedTasksHistory.length} task(s) finished this shift.`}
+          </div>
+        </div>
+      )}
+
+      {activeTask && (<>
       {/* Top Meta Bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -168,7 +187,7 @@ export const ActiveTaskPanel: React.FC<ActiveTaskPanelProps> = ({ onOpenWalkarou
           {activeTask.title}
         </h2>
         <div style={{ fontSize: '13px', fontWeight: 600, opacity: 0.85 }}>
-          Substrate: {activeTask.material} {activeTask.trenchDepthM ? `• Depth: ${activeTask.trenchDepthM}m target` : ''}
+          Volume: {activeTask.volumeM3Current ?? 0} / {activeTask.volumeM3Target ?? '—'} m³ • Zone {activeTask.zoneId}
         </div>
       </div>
 
@@ -187,7 +206,7 @@ export const ActiveTaskPanel: React.FC<ActiveTaskPanelProps> = ({ onOpenWalkarou
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <TrendingUp size={16} />
             <span style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase' }}>
-              Cycle Completion
+              Task Completion (volume moved)
             </span>
           </div>
           <span className="mono-num" style={{ fontSize: '20px', fontWeight: 900 }}>
@@ -229,11 +248,15 @@ export const ActiveTaskPanel: React.FC<ActiveTaskPanelProps> = ({ onOpenWalkarou
           </div>
 
           <div>
-            <div style={{ fontSize: '11px', fontWeight: 600, opacity: 0.8 }}>PREDICTED COMPLETION RANGE</div>
+            <div style={{ fontSize: '11px', fontWeight: 600, opacity: 0.8 }}>
+              {activeTask.predictionFromBackend ? 'BACKEND PREDICTION (P10–P90)' : 'PLANNED ESTIMATE'}
+            </div>
             <div className="mono-num" style={{ fontSize: '16px', fontWeight: 800 }}>
-              {activeTask.predictedMinMinutes}–{activeTask.predictedMaxMinutes} min{' '}
+              {activeTask.predictionFromBackend ? `${activeTask.predictedMinMinutes}–${activeTask.predictedMaxMinutes} min` : `${activeTask.nominalMinutes} min`}{' '}
               <span style={{ fontSize: '12px', opacity: 0.75, fontWeight: 500 }}>
-                (Nominal: {activeTask.nominalMinutes}m)
+                {activeTask.predictionFromBackend
+                  ? `(Plan ${activeTask.nominalMinutes}m${activeTask.remainingMinutes !== null ? ` · ${activeTask.remainingMinutes}m left` : ''})`
+                  : '(awaiting backend)'}
               </span>
             </div>
           </div>
@@ -243,7 +266,7 @@ export const ActiveTaskPanel: React.FC<ActiveTaskPanelProps> = ({ onOpenWalkarou
       {/* Context Evidence Factors */}
       <div>
         <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px', opacity: 0.85 }}>
-          Context & Prediction Factors (Live Machine Evidence):
+          Prediction Factors (Backend) & Site Context:
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
           {activeTask.contextTags.map((tag, idx) => (
@@ -274,10 +297,10 @@ export const ActiveTaskPanel: React.FC<ActiveTaskPanelProps> = ({ onOpenWalkarou
           onClick={toggleTaskPause}
           className="cockpit-btn cockpit-btn-yellow"
           style={{ flex: 1 }}
-          title={isPaused ? 'Resume Machine Operation' : 'Pause Task'}
+          title={isPaused ? 'End the operator break (sends break_end)' : 'Start an operator break (sends break_start)'}
         >
           {isPaused ? <Play size={16} /> : <Pause size={16} />}
-          <span>{isPaused ? 'Resume Operation' : 'Pause Task'}</span>
+          <span>{isPaused ? 'End Break' : 'Take Break'}</span>
         </button>
 
         <button
@@ -290,10 +313,10 @@ export const ActiveTaskPanel: React.FC<ActiveTaskPanelProps> = ({ onOpenWalkarou
             border: '1px solid rgba(16, 185, 129, 0.4)',
             boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)',
           }}
-          title="Complete Task and Advance Next in Shift Queue"
+          title="End this task now (sends task_complete with the volume moved so far)"
         >
           <CheckCircle size={16} />
-          <span>Complete & Advance Queue</span>
+          <span>End Task Now</span>
         </button>
 
         <button
@@ -310,6 +333,8 @@ export const ActiveTaskPanel: React.FC<ActiveTaskPanelProps> = ({ onOpenWalkarou
           <span>Log Issue</span>
         </button>
       </div>
+
+      </>)}
 
       {/* Log Issue Popover / Modal */}
       {isLogIssueOpen && (
@@ -346,7 +371,7 @@ export const ActiveTaskPanel: React.FC<ActiveTaskPanelProps> = ({ onOpenWalkarou
             </div>
 
             <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-              Recording an obstacle links this entry to the current machine coordinates and updates the shift digest for supervisors.
+              Sent to the backend as a manual_incident event from the machine, so it appears in the incident list and shift digest.
             </p>
 
             <textarea

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { link, useLinkStore } from '../../sim/link';
+import { useLinkStore } from '../../sim/link';
 import { chime, setAlarm, speak, stopSpeaking } from '../../sim/alarm';
 import { SEVERITY_RANK, type Alert, type Assessment, type Severity } from '../../sim/protocol';
 import { useSim } from '../../sim/useSim';
@@ -23,13 +23,15 @@ export function CabAlertLayer() {
   const telStatus = useLinkStore((s) => s.telStatus);
   // While either socket is down, the backend can't hear the fix or send the all-clear.
   const linkDown = cabStatus !== 'open' || telStatus !== 'open';
-  const [acked, setAcked] = useState<Record<string, Severity>>({});
+  const alertLog = useLinkStore((s) => s.alertLog);
+  const acknowledgeAlert = useLinkStore((s) => s.acknowledgeAlert);
   const chimed = useRef(new Set<string>());
   const spoken = useRef(new Set<string>());
 
   const alerts = assessment?.alerts ?? [];
   const critical = alerts.filter((a) => a.severity === 'critical');
-  const isAcked = (a: Alert) => acked[a.alert_id] !== undefined && SEVERITY_RANK[acked[a.alert_id]] >= SEVERITY_RANK[a.severity];
+  // Acknowledgement is shared with the dashboard's Safety view through the session alert log.
+  const isAcked = (a: Alert) => alertLog.some((e) => e.alert.alert_id === a.alert_id && e.acknowledged);
   const banners = alerts.filter((a) => a.severity !== 'critical').sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]);
 
   useEffect(() => {
@@ -53,9 +55,9 @@ export function CabAlertLayer() {
         chime();
       }
     });
-    const highUnacked = list.some((a) => a.severity === 'high' && !(acked[a.alert_id] && SEVERITY_RANK[acked[a.alert_id]] >= SEVERITY_RANK.high));
+    const highUnacked = list.some((a) => a.severity === 'high' && !alertLog.some((e) => e.alert.alert_id === a.alert_id && e.acknowledged));
     setAlarm(list.some((a) => a.severity === 'critical') ? 'critical' : highUnacked ? 'high' : 'none');
-  }, [assessment, acked, muted, voice]);
+  }, [assessment, alertLog, muted, voice]);
 
   useEffect(() => () => { setAlarm('none'); stopSpeaking(); }, []);
 
@@ -92,7 +94,7 @@ export function CabAlertLayer() {
                 {a.recommended_action && <em>{a.recommended_action}</em>}
               </div>
               {a.severity === 'high' && !isAcked(a) && (
-                <button type="button" onClick={() => { link.ack(a.alert_id); setAcked((s) => ({ ...s, [a.alert_id]: a.severity })); }}>Acknowledge</button>
+                <button type="button" onClick={() => acknowledgeAlert(a.alert_id)}>Acknowledge</button>
               )}
               <small>{a.alert_id}</small>
             </div>

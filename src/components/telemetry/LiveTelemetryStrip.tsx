@@ -1,5 +1,6 @@
 import React from 'react';
 import { useOperatorStore } from '../../store/useOperatorStore';
+import { BAR_TO_PSI, LIMITS } from '../../sim/siteConfig';
 import {
   Gauge,
   Zap,
@@ -11,12 +12,18 @@ import {
 } from 'lucide-react';
 
 export const LiveTelemetryStrip: React.FC = () => {
-  const { telemetry, maxSafeSlopeDeg } = useOperatorStore();
+  const { telemetry, maxSafeSlopeDeg, dangerRadiusM, cautionRadiusM, sensingRangeM, simStatus } = useOperatorStore();
 
-  const isRpmHigh = telemetry.engineRpm > 2100;
-  const isPressureHigh = telemetry.hydraulicPressurePsi > 3750;
-  const isTiltHigh = telemetry.pitchDeg > maxSafeSlopeDeg;
-  const isObjectClose = telemetry.closestObjectDistM < 5.0;
+  // Thresholds: machine limits from the shared site config (spec §7); zone radii from the backend.
+  const closest = telemetry.closestObjectDistM;
+  const isRpmHigh = telemetry.engineRpm > LIMITS.rpmOverRev;
+  const hydMaxPsi = LIMITS.hydPressureMaxBar * BAR_TO_PSI;
+  const isPressureHigh = telemetry.hydraulicPressurePsi > hydMaxPsi;
+  const isTiltHigh = Math.abs(telemetry.pitchDeg) > maxSafeSlopeDeg;
+  const isObjectClose = closest !== null && closest < dangerRadiusM;
+  const isObjectCaution = closest !== null && closest < cautionRadiusM;
+  const isCabHot = telemetry.cabTempC > LIMITS.cabHeatStressC;
+  const offline = simStatus === 'stopped';
 
   const items = [
     {
@@ -26,8 +33,8 @@ export const LiveTelemetryStrip: React.FC = () => {
       unit: 'RPM',
       icon: <Gauge size={16} />,
       status: isRpmHigh ? 'warning' : 'safe',
-      nominal: '1,200–2,000',
-      trendPct: Math.min(100, (telemetry.engineRpm / 2400) * 100),
+      nominal: `${LIMITS.rpmWorking[0].toLocaleString()}–${LIMITS.rpmWorking[1].toLocaleString()} working`,
+      trendPct: Math.min(100, (telemetry.engineRpm / LIMITS.rpmOverRev) * 100),
     },
     {
       id: 'speed',
@@ -35,18 +42,18 @@ export const LiveTelemetryStrip: React.FC = () => {
       value: telemetry.groundSpeedKmh.toFixed(1),
       unit: 'KM/H',
       icon: <Zap size={16} />,
-      status: 'safe',
-      nominal: '0.0–5.5 Max',
-      trendPct: Math.min(100, (telemetry.groundSpeedKmh / 5.5) * 100),
+      status: telemetry.groundSpeedKmh > LIMITS.groundSpeedSiteMaxKmh ? 'warning' : 'safe',
+      nominal: `0.0–${LIMITS.groundSpeedMaxKmh} travel`,
+      trendPct: Math.min(100, (telemetry.groundSpeedKmh / LIMITS.groundSpeedSiteMaxKmh) * 100),
     },
     {
       id: 'fuel',
       label: 'FUEL LEVEL',
-      value: `${telemetry.fuelLevelPct}%`,
-      unit: 'DEF 92%',
+      value: `${telemetry.fuelLevelPct.toFixed(1)}%`,
+      unit: `DEF ${telemetry.defLevelPct}%`,
       icon: <Fuel size={16} />,
-      status: telemetry.fuelLevelPct < 20 ? 'warning' : 'safe',
-      nominal: 'Range ~5.8h',
+      status: telemetry.fuelLevelPct < LIMITS.fuelLowPct ? 'warning' : 'safe',
+      nominal: `Low below ${LIMITS.fuelLowPct}%`,
       trendPct: telemetry.fuelLevelPct,
     },
     {
@@ -56,8 +63,8 @@ export const LiveTelemetryStrip: React.FC = () => {
       unit: 'PSI',
       icon: <Activity size={16} />,
       status: isPressureHigh ? 'warning' : 'safe',
-      nominal: '< 3,800 PSI',
-      trendPct: Math.min(100, (telemetry.hydraulicPressurePsi / 4200) * 100),
+      nominal: `< ${Math.round(hydMaxPsi).toLocaleString()} PSI`,
+      trendPct: Math.min(100, (telemetry.hydraulicPressurePsi / hydMaxPsi) * 100),
     },
     {
       id: 'tilt',
@@ -66,8 +73,8 @@ export const LiveTelemetryStrip: React.FC = () => {
       unit: `LIM ${maxSafeSlopeDeg}°`,
       icon: <Compass size={16} />,
       status: isTiltHigh ? 'danger' : 'safe',
-      nominal: `Max ${maxSafeSlopeDeg}° Safe`,
-      trendPct: Math.min(100, (telemetry.pitchDeg / 30) * 100),
+      nominal: `Roll ${telemetry.rollDeg}°`,
+      trendPct: Math.min(100, (Math.abs(telemetry.pitchDeg) / maxSafeSlopeDeg) * 100),
     },
     {
       id: 'temp',
@@ -75,21 +82,21 @@ export const LiveTelemetryStrip: React.FC = () => {
       value: `${telemetry.cabTempC.toFixed(1)}°`,
       unit: 'CELSIUS',
       icon: <Thermometer size={16} />,
-      status: 'safe',
-      nominal: 'HVAC Auto 21°',
-      trendPct: 65,
+      status: isCabHot ? 'warning' : 'safe',
+      nominal: `Coolant ${telemetry.coolantTempC}°C`,
+      trendPct: Math.min(100, (telemetry.cabTempC / LIMITS.cabHeatStressC) * 100),
     },
     {
       id: 'radar',
       label: 'CLOSEST OBJECT',
-      value: `${telemetry.closestObjectDistM.toFixed(1)}m`,
-      unit: telemetry.closestObjectDistM < 5.0 ? 'RED ZONE' : 'CLEAR',
+      value: closest === null ? '—' : `${closest.toFixed(1)}m`,
+      unit: isObjectClose ? 'RED ZONE' : isObjectCaution ? 'CAUTION' : 'CLEAR',
       icon: <Radio size={16} />,
-      status: isObjectClose ? 'danger' : telemetry.closestObjectDistM < 12.0 ? 'warning' : 'safe',
-      nominal: '> 15.0m Normal',
-      trendPct: Math.min(100, (telemetry.closestObjectDistM / 25) * 100),
+      status: isObjectClose ? 'danger' : isObjectCaution ? 'warning' : 'safe',
+      nominal: closest === null ? `Nothing within ${sensingRangeM} m` : `Danger < ${dangerRadiusM} m · caution < ${cautionRadiusM} m`,
+      trendPct: closest === null ? 100 : Math.min(100, (closest / sensingRangeM) * 100),
     },
-  ];
+  ].map((item) => (offline ? { ...item, status: 'safe', nominal: 'Shift not started' } : item));
 
   return (
     <footer

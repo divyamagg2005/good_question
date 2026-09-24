@@ -26,11 +26,12 @@ export const ReadinessInstrument: React.FC = () => {
   const strokeWidth = 14;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (score / 100) * circumference;
+  const strokeDashoffset = circumference - ((score ?? 0) / 100) * circumference;
 
   const getColor = () => {
     if (state === 'Optimal') return 'var(--safety-green)';
     if (state === 'Caution') return 'var(--safety-amber)';
+    if (state === 'Offline') return 'var(--text-muted)';
     return 'var(--safety-red)';
   };
 
@@ -88,6 +89,8 @@ export const ReadinessInstrument: React.FC = () => {
                 ? 'rgba(16, 185, 129, 0.15)'
                 : state === 'Caution'
                 ? 'rgba(245, 158, 11, 0.15)'
+                : state === 'Offline'
+                ? 'rgba(255, 255, 255, 0.06)'
                 : 'rgba(239, 68, 68, 0.2)',
             color: getColor(),
             fontWeight: 800,
@@ -97,7 +100,7 @@ export const ReadinessInstrument: React.FC = () => {
           }}
         >
           {getStatusIcon()}
-          <span>{state}</span>
+          <span>{state === 'Offline' ? 'Awaiting backend' : state}</span>
         </div>
       </div>
 
@@ -153,7 +156,7 @@ export const ReadinessInstrument: React.FC = () => {
                 lineHeight: 1,
               }}
             >
-              {score}
+              {score ?? '--'}
             </span>
             <span
               style={{
@@ -173,8 +176,13 @@ export const ReadinessInstrument: React.FC = () => {
         {/* 5 Selectable Contributing Signals */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: '220px' }}>
           <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>
-            SELECT CONTRIBUTING SIGNAL TO EXPLAIN:
+            {contributors.length ? 'SELECT CONTRIBUTING SIGNAL TO EXPLAIN:' : 'READINESS IS COMPUTED BY THE BACKEND'}
           </div>
+          {contributors.length === 0 && (
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Complete the pre-shift walkaround to start the shift. The score and its five contributing signals appear with the first backend assessment.
+            </div>
+          )}
 
           {contributors.map((contrib) => {
             const isSelected = activeModalId === contrib.id;
@@ -316,9 +324,9 @@ export const ReadinessInstrument: React.FC = () => {
                 </div>
               </div>
               <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: '10px', borderRadius: '6px' }}>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>SCORE IMPACT (WEIGHT)</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>BACKEND SIGNAL SCORE</div>
                 <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--cat-yellow)' }} className="mono-num">
-                  {currentDetail.score}% ({currentDetail.weight}% of Total)
+                  {currentDetail.score} / 100
                 </div>
               </div>
             </div>

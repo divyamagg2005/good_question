@@ -1,4 +1,5 @@
-import { link } from './link';
+import { link, useLinkStore } from './link';
+import { LIMITS, MACHINE, OPERATOR, SITE_ID } from './siteConfig';
 import {
   SCHEMA_VERSION,
   type EngineState,
@@ -31,10 +32,10 @@ import {
 // Everything runs on a fixed 0.1 s sim-time step, so a given seed and the same director inputs
 // replay identically. Message cadence follows spec section 4 (all in sim time).
 
-export const MACHINE_ID = 'EXC001';
-export const OPERATOR_ID = 'OP1001';
+export const MACHINE_ID = MACHINE.id;
+export const OPERATOR_ID = OPERATOR.id;
 const STEP = 0.1;
-const MAX_TRAVEL_MS = 1.5; // ≈ 5.4 km/h
+const MAX_TRAVEL_MS = (LIMITS.groundSpeedMaxKmh - 0.1) / 3.6; // just under the site limit
 const TURN_DPS = 20;
 const TANK_L = 410;
 const BUCKET_CAPACITY_KG = 1650;
@@ -153,6 +154,7 @@ export interface Excavator {
   fuelLevelPct: number;
   defLevelPct: number;
   batteryV: number;
+  hydPressureBar: number;
   cumHours: number;
   cumIdleHours: number;
   cumFuelL: number;
@@ -204,7 +206,7 @@ export interface SimConfig {
   shiftStartIso: string;
 }
 
-interface TaskDef {
+export interface TaskDef {
   task_id: string;
   task_type: string;
   zone_id: string;
@@ -213,7 +215,7 @@ interface TaskDef {
   scheduled_offset_s: number;
 }
 
-const TASKS: TaskDef[] = [
+export const TASKS: TaskDef[] = [
   { task_id: 'T002', task_type: 'Trenching', zone_id: 'ZONE_B', planned_estimate_min: 45, target_volume_m3: 36.9, scheduled_offset_s: 0 },
   { task_id: 'T003', task_type: 'Material Loading', zone_id: 'LOAD_BAY', planned_estimate_min: 30, target_volume_m3: 24, scheduled_offset_s: 3600 },
 ];
@@ -236,7 +238,30 @@ export interface SimSnapshot {
   volumeMovedM3: number;
   truckState: HaulTruck['state'];
   sensed: number;
+  sensedObjects: SensedObject[];
+  closestObjectM: number | null;
   recentEvents: { tick: number; type: EventType }[];
+  /** Index into TASKS of the current (or last) task, -1 before the first task starts. */
+  taskIndex: number;
+  taskElapsedSec: number;
+  completedTasks: CompletedTask[];
+  sensingRangeM: number;
+}
+
+export interface SensedObject {
+  id: string;
+  type: 'person' | 'vehicle';
+  role: string;
+  distanceM: number;
+  bearingDeg: number;
+}
+
+export interface CompletedTask {
+  task: TaskDef;
+  actualMin: number;
+  volumeM3: number;
+  completedAt: string;
+  endedEarly: boolean;
 }
 
 // ---------------------------------------------------------------- engine
@@ -270,6 +295,7 @@ function freshExcavator(): Excavator {
     fuelLevelPct: 72,
     defLevelPct: 71,
     batteryV: 25.4,
+    hydPressureBar: 0,
     cumHours: 1524.3,
     cumIdleHours: 312.7,
     cumFuelL: 98234.5,
@@ -367,6 +393,9 @@ export class SimEngine {
 
   private taskIndex = -1;
   private taskActive = false;
+  private taskStartTime = 0;
+  private completedTasks: CompletedTask[] = [];
+  private sensedObjects: SensedObject[] = [];
   private volumeMovedM3 = 0;
   private nextTaskAt: number | null = null;
 
@@ -396,6 +425,7 @@ export class SimEngine {
   /** Resets the world and starts a fresh session once the telemetry socket is open. */
   start() {
     link.stopReplay();
+    useLinkStore.getState().resetSession();
     this.resetWorld();
     this.status = 'waiting';
     link.onTelemetryOpen = () => { if (this.status === 'waiting') this.begin(); };
@@ -467,6 +497,9 @@ export class SimEngine {
     this.taskActive = false;
     this.volumeMovedM3 = 0;
     this.nextTaskAt = null;
+    this.taskStartTime = 0;
+    this.completedTasks = [];
+    this.sensedObjects = [];
     this.drive = null;
     this.shuttle = null;
     this.input = { travel: 0, turn: 0, swing: 0, boom: 0, hardBrake: false };
@@ -566,10 +599,10 @@ export class SimEngine {
     e.pitchDeg = ground.gradeDeg * Math.cos(rel) + vib + (this.rng() - 0.5) * 0.3 * (e.engineOn ? 1 : 0);
     e.rollDeg = ground.gradeDeg * Math.sin(rel) + (this.rng() - 0.5) * 0.3 * (e.engineOn ? 1 : 0);
     const tilt = Math.max(Math.abs(e.pitchDeg), Math.abs(e.rollDeg));
-    if (tilt > 15 && this.tiltArmed) {
+    if (tilt > LIMITS.tiltWarningDeg && this.tiltArmed) {
       this.tiltArmed = false;
       this.emit('tilt_warning', { pitch_deg: r1(e.pitchDeg), roll_deg: r1(e.rollDeg) });
-    } else if (tilt < 12) {
+    } else if (tilt < LIMITS.tiltWarningDeg - 3) {
       this.tiltArmed = true;
     }
 
@@ -605,6 +638,8 @@ export class SimEngine {
     const acTarget = env.ambient > 35 ? 24 + (env.ambient - 35) * 0.6 : Math.min(env.ambient, 24);
     e.cabTempC = lag(e.cabTempC, e.engineOn ? acTarget : env.ambient, 240, dt);
     e.batteryV = e.engineOn ? 27.6 : 25.2;
+    const pressureByMode: Record<WorkMode, number> = { idle: 35, break: 30, dig: 310, swing_loaded: 240, dump: 180, swing_empty: 150, travel: 210, grade: 200 };
+    e.hydPressureBar = lag(e.hydPressureBar, e.engineOn ? pressureByMode[e.workMode] + (this.rng() - 0.5) * 20 : 0, 0.5, dt);
 
     if (e.coolantC > 105 && !e.faultCodes.includes('COOLANT_HIGH_TEMP')) {
       e.faultCodes = [...e.faultCodes, 'COOLANT_HIGH_TEMP'];
@@ -725,8 +760,7 @@ export class SimEngine {
     }
     const task = TASKS[this.taskIndex];
     if (this.taskActive && task && this.volumeMovedM3 >= task.target_volume_m3) {
-      this.taskActive = false;
-      this.emit('task_complete', { task_id: task.task_id, volume_moved_m3: r1(this.volumeMovedM3) });
+      this.finishTask(false);
       if (this.taskIndex + 1 < TASKS.length) this.nextTaskAt = this.tick + 60;
     }
   }
@@ -950,7 +984,6 @@ export class SimEngine {
     this.lastOperationTick = this.tick;
     const speedKmh = Math.abs(e.speedMs) * 3.6;
     const direction: TravelDirection = speedKmh < 0.1 ? 'stationary' : e.speedMs > 0 ? 'forward' : 'reverse';
-    const pressureByMode: Record<WorkMode, number> = { idle: 35, break: 30, dig: 310, swing_loaded: 240, dump: 180, swing_empty: 150, travel: 210, grade: 200 };
     link.send({
       ...this.envelope('operation'),
       operator_id: OPERATOR_ID,
@@ -965,7 +998,7 @@ export class SimEngine {
         hydraulic_lockout: e.hydraulicLockout,
         travel_alarm_active: direction !== 'stationary',
       },
-      implement: { work_mode: e.workMode, hydraulic_pressure_bar: Math.round(pressureByMode[e.workMode] + (this.rng() - 0.5) * 20) },
+      implement: { work_mode: e.workMode, hydraulic_pressure_bar: Math.round(e.hydPressureBar) },
       cab: { seat_occupied: e.seatOccupied, seatbelt_fastened: e.seatbeltFastened, door_open: null, controls_active: this.canOperate && e.workMode !== 'idle' },
     });
   }
@@ -994,30 +1027,32 @@ export class SimEngine {
     });
   }
 
-  private sendEnvironment() {
-    this.lastEnvironmentTick = this.tick;
+  /** The environment block exactly as last reported to the backend. */
+  get environment() {
     const env = WEATHER_PRESETS[this.weather];
     const lightCap = this.light === 'night' ? 250 : this.light === 'dusk' ? 2000 : Infinity;
-    link.send({
-      ...this.envelope('environment'),
-      environment: {
-        weather: this.weather,
-        ambient_temp_c: env.ambient,
-        humidity_pct: env.humidity,
-        rain_mm_h: env.rain,
-        wind_speed_kmh: env.wind,
-        wind_gust_kmh: env.gust,
-        visibility_m: Math.min(env.visibility, lightCap),
-        light: this.light,
-        dust_index: env.dust,
-        ground_condition: env.ground,
-        lightning_distance_km: this.lightningKm,
-      },
-    });
+    return {
+      weather: this.weather,
+      ambient_temp_c: env.ambient,
+      humidity_pct: env.humidity,
+      rain_mm_h: env.rain,
+      wind_speed_kmh: env.wind,
+      wind_gust_kmh: env.gust,
+      visibility_m: Math.min(env.visibility, lightCap),
+      light: this.light,
+      dust_index: env.dust,
+      ground_condition: env.ground,
+      lightning_distance_km: this.lightningKm,
+    };
+  }
+
+  private sendEnvironment() {
+    this.lastEnvironmentTick = this.tick;
+    link.send({ ...this.envelope('environment'), environment: this.environment });
   }
 
   private get sensingRange() {
-    return this.weather === 'Storm' || this.weather === 'Fog' || this.light === 'night' ? 35 : 20;
+    return this.weather === 'Storm' || this.weather === 'Fog' || this.light === 'night' ? LIMITS.proximityRangeLowVisM : LIMITS.proximityRangeM;
   }
 
   private confidence(sensor: 'radar' | 'camera', dist: number) {
@@ -1037,6 +1072,7 @@ export class SimEngine {
     const range = this.sensingRange;
     const facing = e.headingDeg + e.swingDeg;
     const objects: Record<string, unknown>[] = [];
+    const sensed: SensedObject[] = [];
     const seen = new Set<string>();
     let personNear = false;
     const consider = (id: string, type: 'person' | 'vehicle', role: string, x: number, y: number) => {
@@ -1045,16 +1081,18 @@ export class SimEngine {
       const dist = Math.hypot(dx, dy);
       if (dist > range) return;
       seen.add(id);
-      if (type === 'person' && dist <= 20) personNear = true;
+      if (type === 'person' && dist <= LIMITS.proximityRangeM) personNear = true;
       const prev = this.prevDistances.get(id);
       this.prevDistances.set(id, dist);
       const sensor = type === 'person' ? 'radar' : 'camera';
+      const bearing = Math.round(norm360(compassBearing(dx, dy) - facing)) % 360;
+      sensed.push({ id, type, role, distanceM: r1(dist), bearingDeg: bearing });
       objects.push({
         object_id: id,
         object_type: type,
         role,
         distance_m: r1(dist),
-        bearing_deg: Math.round(norm360(compassBearing(dx, dy) - facing)) % 360,
+        bearing_deg: bearing,
         relative_speed_ms: prev === undefined ? 0 : r1(dist - prev),
         sensor,
         detection_confidence: this.confidence(sensor, dist),
@@ -1065,6 +1103,7 @@ export class SimEngine {
     for (const id of [...this.prevDistances.keys()]) if (!seen.has(id)) this.prevDistances.delete(id);
     this.personNear = personNear;
     this.sensedCount = objects.length;
+    this.sensedObjects = sensed;
 
     if (objects.length > 0) {
       this.proximityActive = true;
@@ -1091,12 +1130,31 @@ export class SimEngine {
     }
   }
 
+  private finishTask(endedEarly: boolean) {
+    const task = TASKS[this.taskIndex];
+    if (!task || !this.taskActive) return;
+    this.taskActive = false;
+    this.completedTasks = [
+      ...this.completedTasks,
+      { task, actualMin: r1((this.simTime - this.taskStartTime) / 60), volumeM3: r1(this.volumeMovedM3), completedAt: this.timestampOf(this.tick), endedEarly },
+    ];
+    this.emit('task_complete', { task_id: task.task_id, volume_moved_m3: r1(this.volumeMovedM3) });
+  }
+
+  /** Operator ends the current task now (before the target volume is reached). */
+  completeTaskNow() {
+    if (!this.live || !this.taskActive) return;
+    this.finishTask(true);
+    if (this.taskIndex + 1 < TASKS.length) this.nextTaskAt = this.tick + 60;
+  }
+
   private startNextTask() {
     this.taskIndex += 1;
     const task = TASKS[this.taskIndex];
     if (!task) return;
     this.taskActive = true;
     this.volumeMovedM3 = 0;
+    this.taskStartTime = this.simTime;
     this.beginDig();
     this.emit('task_start', { task_id: task.task_id });
   }
@@ -1108,9 +1166,9 @@ export class SimEngine {
       time_scale: this.cfg.timeScale,
       scenario_id: this.cfg.scenarioId,
       seed: this.cfg.seed,
-      site_id: 'SITE01',
-      machine: { machine_id: MACHINE_ID, model: 'CAT 320', machine_type: 'excavator', machine_age_yrs: 4 },
-      operator: { operator_id: OPERATOR_ID, skill_level: 'Intermediate', shift_start: start },
+      site_id: SITE_ID,
+      machine: { machine_id: MACHINE.id, model: MACHINE.model, machine_type: MACHINE.type, machine_age_yrs: MACHINE.ageYears },
+      operator: { operator_id: OPERATOR.id, skill_level: OPERATOR.skillLevel, shift_start: start },
       daily_tasks: TASKS.map((t) => ({
         task_id: t.task_id,
         task_type: t.task_type,
@@ -1240,6 +1298,10 @@ export class SimEngine {
     this.light = next;
     if (this.live) this.sendEnvironment();
     this.notify(true);
+  }
+
+  reportIncident(note: string) {
+    if (this.live) this.emit('manual_incident', { note }, 'operator');
   }
 
   reportNearMiss(note: string) {
@@ -1457,7 +1519,13 @@ export class SimEngine {
       volumeMovedM3: this.volumeMovedM3,
       truckState: this.truck.state,
       sensed: this.sensedCount,
+      sensedObjects: this.sensedObjects,
+      closestObjectM: this.sensedObjects.length ? Math.min(...this.sensedObjects.map((o) => o.distanceM)) : null,
       recentEvents: this.recentEvents,
+      taskIndex: this.taskIndex,
+      taskElapsedSec: this.taskActive ? this.simTime - this.taskStartTime : 0,
+      completedTasks: this.completedTasks,
+      sensingRangeM: this.sensingRange,
     };
   }
 

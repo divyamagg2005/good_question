@@ -78,7 +78,6 @@ export function SimConsole() {
   const connected = telStatus !== 'offline';
 
   const start = () => {
-    useLinkStore.setState({ assessment: null });
     sim.configure({ seed: Number(seed) || 42 });
     sim.start();
   };
@@ -87,7 +86,7 @@ export function SimConsole() {
     if (!file) return;
     try {
       sim.stop();
-      useLinkStore.setState({ assessment: null });
+      useLinkStore.getState().resetSession();
       link.replay(file.name, await file.text());
     } catch (err) {
       console.error('[IronSense] replay failed', err);

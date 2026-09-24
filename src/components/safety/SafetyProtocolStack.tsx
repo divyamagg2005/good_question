@@ -21,7 +21,9 @@ export const SafetyProtocolStack: React.FC<SafetyProtocolStackProps> = ({ onExpa
     fatigueDetected,
     tiltAngleExcessive,
     maxSafeSlopeDeg,
-    proximityMultiplier,
+    dangerRadiusM,
+    cautionRadiusM,
+    sensingRangeM,
     telemetry,
     safetyEvents,
     proximityTargets,
@@ -39,6 +41,8 @@ export const SafetyProtocolStack: React.FC<SafetyProtocolStackProps> = ({ onExpa
   };
 
   const hasRedWorker = proximityTargets.some((t) => t.zone === 'red');
+  // Mini radar: sensor range fills a 58 px radius; rings and targets share the scale.
+  const pxPerM = 58 / sensingRangeM;
 
   // Filter unacknowledged or recent events
   const displayEvents = safetyEvents.slice(0, 4);
@@ -105,8 +109,8 @@ export const SafetyProtocolStack: React.FC<SafetyProtocolStackProps> = ({ onExpa
         <div
           style={{
             position: 'absolute',
-            width: `${110 * proximityMultiplier}px`,
-            height: `${110 * proximityMultiplier}px`,
+            width: `${sensingRangeM * pxPerM * 2}px`,
+            height: `${sensingRangeM * pxPerM * 2}px`,
             borderRadius: '50%',
             border: '1px dashed rgba(16, 185, 129, 0.4)',
             pointerEvents: 'none',
@@ -115,8 +119,8 @@ export const SafetyProtocolStack: React.FC<SafetyProtocolStackProps> = ({ onExpa
         <div
           style={{
             position: 'absolute',
-            width: `${75 * proximityMultiplier}px`,
-            height: `${75 * proximityMultiplier}px`,
+            width: `${cautionRadiusM * pxPerM * 2}px`,
+            height: `${cautionRadiusM * pxPerM * 2}px`,
             borderRadius: '50%',
             border: '1px solid rgba(245, 158, 11, 0.5)',
             pointerEvents: 'none',
@@ -125,8 +129,8 @@ export const SafetyProtocolStack: React.FC<SafetyProtocolStackProps> = ({ onExpa
         <div
           style={{
             position: 'absolute',
-            width: `${45 * proximityMultiplier}px`,
-            height: `${45 * proximityMultiplier}px`,
+            width: `${dangerRadiusM * pxPerM * 2}px`,
+            height: `${dangerRadiusM * pxPerM * 2}px`,
             borderRadius: '50%',
             border: '1.5px solid rgba(239, 68, 68, 0.8)',
             background: hasRedWorker ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
@@ -158,7 +162,7 @@ export const SafetyProtocolStack: React.FC<SafetyProtocolStackProps> = ({ onExpa
         {proximityTargets.map((tgt) => {
           // Compute polar offset
           const rad = (tgt.angleDeg - 90) * (Math.PI / 180);
-          const scaledDist = Math.min(58, tgt.distanceM * 2.8);
+          const scaledDist = Math.min(58, tgt.distanceM * pxPerM);
           const posX = Math.cos(rad) * scaledDist;
           const posY = Math.sin(rad) * scaledDist;
 
@@ -303,7 +307,7 @@ export const SafetyProtocolStack: React.FC<SafetyProtocolStackProps> = ({ onExpa
               color: fatigueDetected ? 'var(--safety-amber)' : 'var(--safety-green)',
             }}
           >
-            {fatigueDetected ? 'CYCLE DRIFT' : 'ALERT'}
+            {fatigueDetected ? 'BACKEND FLAG' : 'ALERT'}
           </span>
         </div>
       </div>

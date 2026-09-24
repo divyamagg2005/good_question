@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ENDPOINTS, type Assessment, type CabLang, type BackendError, type EndpointKey, type OutgoingMessage } from './protocol';
+import { ENDPOINTS, SEVERITY_RANK, type Alert, type Anomaly, type Assessment, type CabLang, type BackendError, type EndpointKey, type OutgoingMessage, type Severity } from './protocol';
 
 // Two WebSockets to the IronSense backend:
 //   /ws/telemetry      — the sim sends every message here; the backend replies only with errors.
@@ -13,6 +13,24 @@ export interface ErrorEntry {
   at: number;
   reply: BackendError;
   sent: OutgoingMessage | null;
+}
+
+/** Every alert the cab socket has shown this session, with its peak severity and lifecycle. */
+export interface AlertLogEntry {
+  alert: Alert;
+  peakSeverity: Severity;
+  firstSeen: string;
+  lastSeen: string;
+  active: boolean;
+  acknowledged: boolean;
+}
+
+/** Every anomaly type seen this session (latest explanation wins). */
+export interface AnomalyLogEntry {
+  anomaly: Anomaly;
+  firstSeen: string;
+  lastSeen: string;
+  active: boolean;
 }
 
 export interface ReplayState {
@@ -35,10 +53,14 @@ interface LinkState {
   muted: boolean;
   lang: CabLang;
   voice: boolean;
+  alertLog: AlertLogEntry[];
+  anomalyLog: AnomalyLogEntry[];
   setEndpoint: (endpoint: EndpointKey) => void;
   setMuted: (muted: boolean) => void;
   clearErrors: () => void;
   setVoice: (voice: boolean) => void;
+  acknowledgeAlert: (alertId: string) => void;
+  resetSession: () => void;
 }
 
 export const useLinkStore = create<LinkState>((set) => ({
@@ -55,11 +77,50 @@ export const useLinkStore = create<LinkState>((set) => ({
   muted: false,
   lang: 'en',
   voice: true,
+  alertLog: [],
+  anomalyLog: [],
   setEndpoint: (endpoint) => set({ endpoint }),
   setMuted: (muted) => set({ muted }),
   clearErrors: () => set({ errors: [] }),
   setVoice: (voice) => set({ voice }),
+  acknowledgeAlert: (alertId) => {
+    link.ack(alertId);
+    set((s) => ({ alertLog: s.alertLog.map((e) => (e.alert.alert_id === alertId ? { ...e, acknowledged: true } : e)) }));
+  },
+  resetSession: () => set({ assessment: null, assessmentAt: 0, alertLog: [], anomalyLog: [] }),
 }));
+
+function mergeAssessment(state: LinkState, a: Assessment): Partial<LinkState> {
+  const at = a.timestamp;
+  const current = new Map(a.alerts.map((al) => [al.alert_id, al]));
+  const alertLog = state.alertLog.map((e) => {
+    const next = current.get(e.alert.alert_id);
+    if (!next) return e.active ? { ...e, active: false } : e;
+    current.delete(e.alert.alert_id);
+    const escalated = SEVERITY_RANK[next.severity] > SEVERITY_RANK[e.peakSeverity];
+    return {
+      ...e,
+      alert: next,
+      lastSeen: at,
+      active: true,
+      peakSeverity: escalated ? next.severity : e.peakSeverity,
+      // An escalation needs a fresh acknowledgement.
+      acknowledged: escalated ? false : e.acknowledged,
+    };
+  });
+  for (const al of current.values()) {
+    alertLog.unshift({ alert: al, peakSeverity: al.severity, firstSeen: at, lastSeen: at, active: true, acknowledged: false });
+  }
+  const activeAnoms = new Map(a.anomalies.map((an) => [an.anomaly_type, an]));
+  const anomalyLog = state.anomalyLog.map((e) => {
+    const next = activeAnoms.get(e.anomaly.anomaly_type);
+    if (!next) return e.active ? { ...e, active: false } : e;
+    activeAnoms.delete(e.anomaly.anomaly_type);
+    return { ...e, anomaly: next, lastSeen: at, active: true };
+  });
+  for (const an of activeAnoms.values()) anomalyLog.unshift({ anomaly: an, firstSeen: at, lastSeen: at, active: true });
+  return { assessment: a, assessmentAt: Date.now(), alertLog: alertLog.slice(0, 200), anomalyLog };
+}
 
 const MACHINE_ID = 'EXC001';
 const MAX_QUEUE = 3000;
@@ -283,7 +344,7 @@ class TelemetryLink {
       try { data = JSON.parse(String(event.data)); } catch { console.warn('[IronSense] cab socket sent non-JSON', event.data); return; }
       const msg = data as { msg_type?: string };
       if (msg.msg_type === 'assessment') {
-        useLinkStore.setState({ assessment: data as Assessment, assessmentAt: Date.now() });
+        useLinkStore.setState((state) => mergeAssessment(state, data as Assessment));
       } else {
         console.info('[IronSense] cab socket message', data);
       }

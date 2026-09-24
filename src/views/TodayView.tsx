@@ -24,10 +24,15 @@ export const TodayView: React.FC = () => {
     toggleWalkaroundItem,
     completeWalkaround,
     upcomingQueue,
-    activeLesson,
     anomalyFlags,
     setDestination,
+    getActiveLesson,
+    machineId,
+    machineModel,
+    operatorName,
+    operatorId,
   } = useOperatorStore();
+  const activeLesson = getActiveLesson();
 
   const [isWalkaroundModalOpen, setIsWalkaroundModalOpen] = useState(false);
   const [selectedAnomalyId, setSelectedAnomalyId] = useState<string | null>(null);
@@ -76,6 +81,9 @@ export const TodayView: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {upcomingQueue.length === 0 && (
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No further tasks planned for today (GET /api/tasks/today).</div>
+              )}
               {upcomingQueue.map((item: TaskItem, idx: number) => (
                 <div
                   key={item.id}
@@ -111,7 +119,7 @@ export const TodayView: React.FC = () => {
                         {item.title}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                        Est: {item.predictedMinMinutes}–{item.predictedMaxMinutes} min • {item.material}
+                        Planned {item.nominalMinutes} min • {item.volumeM3Target ?? '—'} m³ • Zone {item.zoneId}
                       </div>
                     </div>
                   </div>
@@ -134,8 +142,8 @@ export const TodayView: React.FC = () => {
             </div>
           </div>
 
-          {/* Behavior Micro-Lesson Prompt Card (Electric Blue) */}
-          <div
+          {/* Behavior Micro-Lesson Prompt Card (Electric Blue) — backend-recommended module */}
+          {activeLesson && (<div
             className="blue-guidance-surface"
             style={{
               padding: '18px',
@@ -176,9 +184,9 @@ export const TodayView: React.FC = () => {
                       textTransform: 'uppercase',
                     }}
                   >
-                    Behavior-Driven Micro-Lesson
+                    {activeLesson.badge}
                   </span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>2 Min Action</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{activeLesson.estimatedMinutes} min · {activeLesson.format.replace('_', ' ')}</span>
                 </div>
                 <div style={{ fontSize: '14px', fontWeight: 800, color: '#ffffff' }}>
                   {activeLesson.title}
@@ -196,7 +204,7 @@ export const TodayView: React.FC = () => {
               <span>{activeLesson.completed ? 'Review Quiz' : 'Launch Scenario'}</span>
               <ArrowRight size={14} />
             </button>
-          </div>
+          </div>)}
         </div>
 
         {/* Right Column: Readiness Instrument & Safety Stack */}
@@ -236,6 +244,9 @@ export const TodayView: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {anomalyFlags.length === 0 && (
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No anomalies flagged by the backend this shift.</div>
+              )}
               {anomalyFlags.map((flag: AnomalyFlag) => (
                 <div
                   key={flag.id}
@@ -320,7 +331,7 @@ export const TodayView: React.FC = () => {
                     PRE-SHIFT WALKAROUND INSPECTION
                   </h3>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    CAT 336 Next Gen • Operator Marcus Vance (OP-4092)
+                    {machineId} {machineModel} • {operatorName} ({operatorId})
                   </div>
                 </div>
               </div>
@@ -340,7 +351,7 @@ export const TodayView: React.FC = () => {
             </div>
 
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              Verify each mandatory physical and sensory checkpoint around the excavator envelope prior to releasing hydraulic lockouts.
+              Verify each checkpoint around the machine. Signing off starts the shift: the sim sends shift_context and walkaround_completed to the backend.
             </p>
 
             {/* Checklist items */}
@@ -411,7 +422,7 @@ export const TodayView: React.FC = () => {
                     opacity: walkaroundCompleted || walkaroundItems.every((i: WalkaroundCheckItem) => i.checked) ? 1 : 0.5,
                   }}
                 >
-                  Sign Off &amp; Release Hydraulics
+                  Sign Off &amp; Start Shift
                 </button>
               </div>
             </div>

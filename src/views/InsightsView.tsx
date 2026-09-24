@@ -9,7 +9,11 @@ import {
 } from 'lucide-react';
 
 export const InsightsView: React.FC = () => {
-  const { anomalyFlags, taskBenchmarks, weather } = useOperatorStore();
+  const { anomalyFlags, taskBenchmarks, activeTask, weather } = useOperatorStore();
+  // Chart axis fits the longest predicted band or actual duration (no fixed 100-minute scale).
+  const axisMax = Math.max(10, ...taskBenchmarks.map((b) => Math.max(b.predictedRange[1], b.actualMinutes ?? 0))) * 1.15;
+  const pct = (min: number) => `${Math.min(100, (min / axisMax) * 100)}%`;
+  const topFactors = activeTask?.contextTags.filter((t) => /%$/.test(t)) ?? [];
 
   const [selectedFlag, setSelectedFlag] = useState<AnomalyFlag | null>(null);
 
@@ -49,16 +53,19 @@ export const InsightsView: React.FC = () => {
             </span>
           </div>
           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            {anomalyFlags.length} Machine Flags Active
+            {anomalyFlags.filter((f) => f.active).length} active · {anomalyFlags.length} this shift
           </span>
         </div>
 
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-          Explainable ML models and rule-based edge inferencing analyze joystick inputs, hydraulic pressure transients, and GPS trajectories in real-time.
+          Anomalies come from the backend's rule and ML models scoring this machine's telemetry. Each one lists the model's own explanation.
         </p>
 
         {/* List of Anomaly Cards */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {anomalyFlags.length === 0 && (
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No anomalies flagged by the backend this shift.</div>
+          )}
           {anomalyFlags.map((flag: AnomalyFlag) => {
             const isHigh = flag.severity === 'high';
             const isMed = flag.severity === 'medium';
@@ -98,8 +105,8 @@ export const InsightsView: React.FC = () => {
                       Source: {flag.sourceType}
                     </span>
                   </div>
-                  <span className="mono-num" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                    {flag.timestamp}
+                  <span className="mono-num" style={{ fontSize: '11px', color: flag.active ? 'var(--safety-amber)' : 'var(--text-muted)' }}>
+                    {flag.active ? 'ACTIVE' : 'CLEARED'} · {flag.timestamp} · score {flag.score.toFixed(2)}
                   </span>
                 </div>
 
@@ -145,16 +152,16 @@ export const InsightsView: React.FC = () => {
           <span
             style={{
               fontSize: '11px',
-              color: weather === 'rain' ? 'var(--safety-amber)' : 'var(--safety-green)',
+              color: topFactors.length ? 'var(--safety-amber)' : 'var(--safety-green)',
               fontWeight: 700,
             }}
           >
-            {weather === 'rain' ? 'Rain Factor Active (+12m)' : 'Baseline Conditions'}
+            {topFactors.length ? topFactors.join(' · ') : `${weather} · no prediction factors`}
           </span>
         </div>
 
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-          Comparison of algorithmic predicted duration bands against actual cycle completion across heavy-equipment operations.
+          Backend P10–P90 prediction bands (or the planned estimate before a prediction exists) against the time each task actually took in the sim.
         </p>
 
         {/* Task Comparison Bands */}
@@ -162,7 +169,9 @@ export const InsightsView: React.FC = () => {
           {taskBenchmarks.map((bm: TaskBenchmark, idx: number) => {
             const minTime = bm.predictedRange[0];
             const maxTime = bm.predictedRange[1];
-            const hasStarted = bm.actualMinutes > 0;
+            const actual = bm.actualMinutes ?? 0;
+            const delta = bm.deltaMinutes ?? 0;
+            const hasStarted = bm.actualMinutes !== null;
 
             return (
               <div
@@ -210,8 +219,8 @@ export const InsightsView: React.FC = () => {
                   <div
                     style={{
                       position: 'absolute',
-                      left: `${(minTime / 100) * 100}%`,
-                      width: `${((maxTime - minTime) / 100) * 100}%`,
+                      left: pct(minTime),
+                      width: `max(3px, ${pct(maxTime - minTime)})`,
                       top: 0,
                       bottom: 0,
                       background: 'rgba(255, 184, 0, 0.25)',
@@ -225,15 +234,15 @@ export const InsightsView: React.FC = () => {
                     <div
                       style={{
                         position: 'absolute',
-                        left: `${(bm.actualMinutes / 100) * 100}%`,
+                        left: pct(actual),
                         top: 0,
                         bottom: 0,
                         width: '4px',
-                        background: bm.deltaMinutes <= 0 ? 'var(--safety-green)' : 'var(--safety-amber)',
-                        boxShadow: `0 0 8px ${bm.deltaMinutes <= 0 ? 'var(--safety-green)' : 'var(--safety-amber)'}`,
+                        background: delta <= 0 ? 'var(--safety-green)' : 'var(--safety-amber)',
+                        boxShadow: `0 0 8px ${delta <= 0 ? 'var(--safety-green)' : 'var(--safety-amber)'}`,
                         zIndex: 10,
                       }}
-                      title={`Actual Duration: ${bm.actualMinutes} min`}
+                      title={`Actual duration: ${actual} min`}
                     />
                   )}
                 </div>
@@ -248,14 +257,16 @@ export const InsightsView: React.FC = () => {
                     <span
                       className="mono-num"
                       style={{
-                        color: bm.deltaMinutes <= 0 ? 'var(--safety-green)' : 'var(--safety-amber)',
+                        color: bm.status === 'in-progress' ? 'var(--electric-blue-light)' : delta <= 0 ? 'var(--safety-green)' : 'var(--safety-amber)',
                         fontWeight: 800,
                       }}
                     >
-                      Actual: {bm.actualMinutes}m ({bm.deltaMinutes > 0 ? `+${bm.deltaMinutes}m` : `${bm.deltaMinutes}m`})
+                      {bm.status === 'in-progress'
+                        ? `Running: ${actual}m`
+                        : `Actual: ${actual}m (${delta > 0 ? `+${delta}m` : `${delta}m`} vs P50)`}
                     </span>
                   ) : (
-                    <span style={{ color: 'var(--text-muted)' }}>Pending Machine Dispatch</span>
+                    <span style={{ color: 'var(--text-muted)' }}>Queued</span>
                   )}
                 </div>
               </div>
