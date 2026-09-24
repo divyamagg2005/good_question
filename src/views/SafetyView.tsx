@@ -217,7 +217,8 @@ export const SafetyView: React.FC = () => {
               animation: hasRedTarget ? 'pulse-border-red 1.2s infinite' : 'none',
             }}
           >
-            <span style={{ fontSize: '9px', fontWeight: 900, color: 'var(--safety-red)', marginTop: '-8px', background: 'rgba(0,0,0,0.8)', padding: '0 4px' }}>
+            {/* Small rings would put the label on top of the machine icon; the legend covers it then. */}
+            <span style={{ display: redRadius < 45 ? 'none' : undefined, fontSize: '9px', fontWeight: 900, color: 'var(--safety-red)', marginTop: '-8px', background: 'rgba(0,0,0,0.8)', padding: '0 4px' }}>
               RED DANGER ZONE (&lt; {dangerRadiusM} M)
             </span>
           </div>

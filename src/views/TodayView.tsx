@@ -390,7 +390,10 @@ export const TodayView: React.FC = () => {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px' }}>
               <button
-                onClick={() => completeWalkaround()}
+                onClick={() => {
+                  completeWalkaround();
+                  setIsWalkaroundModalOpen(false);
+                }}
                 style={{
                   background: 'transparent',
                   border: 'none',

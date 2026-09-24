@@ -53,7 +53,7 @@ export const ActiveTaskPanel: React.FC<ActiveTaskPanelProps> = ({ onOpenWalkarou
   };
 
   return (
-    <div className="yellow-task-surface" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+    <div className="yellow-task-surface" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px', minHeight: walkaroundCompleted ? undefined : '300px' }}>
       {/* Walkaround Required Gate Overlay */}
       {!walkaroundCompleted && (
         <div
