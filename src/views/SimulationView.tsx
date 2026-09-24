@@ -329,32 +329,56 @@ function RoamingWorker() {
 const MIN_EYE_HEIGHT = 2.2;
 // Default overview framing the IronSense excavator work area.
 const HOME_VIEW = { position: [24, 24, 64] as [number, number, number], target: [14, 0, 34] as [number, number, number] };
+// Overview offset from the excavator, so a reset frames EXC001 wherever it is (slope, shuttle, …).
+const HOME_OFFSET = new THREE.Vector3(10, 24, 30);
+const RESET_SECONDS = 0.7;
 const RESET_VIEW_EVENT = 'simulation-reset-view';
+
+interface ResetAnim { fromPos: THREE.Vector3; toPos: THREE.Vector3; fromQuat: THREE.Quaternion; toQuat: THREE.Quaternion; t: number }
 
 function FreeFlyCamera() {
   const { camera } = useThree();
-  const { selectedId } = useContext(SelectionContext);
+  const { selectedId, clear } = useContext(SelectionContext);
   const keys = useRef<Record<string, boolean>>({});
+  const resetAnim = useRef<ResetAnim | null>(null);
+  const clearRef = useRef(clear);
+  useEffect(() => { clearRef.current = clear; }, [clear]);
+
   useEffect(() => {
-    const resetView = () => {
-      camera.position.set(...HOME_VIEW.position);
-      camera.lookAt(...HOME_VIEW.target);
+    camera.position.set(...HOME_VIEW.position);
+    camera.lookAt(...HOME_VIEW.target);
+
+    // Glide back to an overview of the excavator. Stops following first — otherwise the follow
+    // camera would pull straight back to the vehicle on the next frame.
+    const requestReset = () => {
+      clearRef.current();
+      keys.current = {};
+      const target = vehicleRegistry.get('EXC001')?.position.clone() ?? new THREE.Vector3(...HOME_VIEW.target);
+      target.y = 0;
+      const toPos = target.clone().add(HOME_OFFSET);
+      const toQuat = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(toPos, target, camera.up));
+      resetAnim.current = { fromPos: camera.position.clone(), toPos, fromQuat: camera.quaternion.clone(), toQuat, t: 0 };
     };
-    resetView();
     const typing = (event: KeyboardEvent) => ['INPUT', 'SELECT', 'TEXTAREA'].includes((event.target as HTMLElement | null)?.tagName ?? '');
     const down = (event: KeyboardEvent) => {
       if (typing(event)) return;
       keys.current[event.code] = true;
-      if (event.code === 'KeyR') resetView();
+      if (event.code === 'KeyR' && !event.repeat) requestReset();
     };
     const up = (event: KeyboardEvent) => { keys.current[event.code] = false; };
+    // Keyups are lost when focus leaves the page (alt-tab, pointer-lock exit); don't keep drifting.
+    const releaseAll = () => { keys.current = {}; };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
-    window.addEventListener(RESET_VIEW_EVENT, resetView);
+    window.addEventListener('blur', releaseAll);
+    document.addEventListener('pointerlockchange', releaseAll);
+    window.addEventListener(RESET_VIEW_EVENT, requestReset);
     return () => {
       window.removeEventListener('keydown', down);
       window.removeEventListener('keyup', up);
-      window.removeEventListener(RESET_VIEW_EVENT, resetView);
+      window.removeEventListener('blur', releaseAll);
+      document.removeEventListener('pointerlockchange', releaseAll);
+      window.removeEventListener(RESET_VIEW_EVENT, requestReset);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -364,6 +388,16 @@ function FreeFlyCamera() {
   const chaseDir = useRef(new THREE.Vector3(0, 0, 1));
   const chaseTarget = useRef(new THREE.Vector3());
   useFrame((_, delta) => {
+    const anim = resetAnim.current;
+    if (anim) {
+      anim.t = Math.min(1, anim.t + delta / RESET_SECONDS);
+      const ease = 1 - (1 - anim.t) ** 3;
+      camera.position.lerpVectors(anim.fromPos, anim.toPos, ease);
+      camera.quaternion.slerpQuaternions(anim.fromQuat, anim.toQuat, ease);
+      if (anim.t >= 1) resetAnim.current = null;
+      return;
+    }
+
     // While following a selected vehicle, camera position chases it (world-space, so it works
     // regardless of the model's own local "forward" axis); mouse-look stays fully user-controlled
     // since we never touch camera.quaternion here — only PointerLockControls does that.
@@ -603,6 +637,7 @@ export const SimulationView: React.FC = () => {
     }
   }, [active, progress, ready]);
 
+  const clearSelection = useCallback(() => setSelectedId(null), []);
   const select = useCallback((id: string) => {
     setSelectedId((current) => (current === id ? null : id));
   }, []);
@@ -624,7 +659,7 @@ export const SimulationView: React.FC = () => {
   };
 
   return (
-    <SelectionContext.Provider value={{ selectedId, select }}>
+    <SelectionContext.Provider value={{ selectedId, select, clear: clearSelection }}>
       <div className="simulation-view" id="simulation-canvas-root">
         <Canvas key={canvasKey} camera={{ position: HOME_VIEW.position, fov: 55 }} dpr={[1, 1.5]}>
           <Suspense fallback={null}>
@@ -635,7 +670,10 @@ export const SimulationView: React.FC = () => {
         {ready && !contextLost && (
           <>
             <SimTopBar />
-            <div className="simulation-hud simulation-nav-hint">MOUSE LOOK · WASD MOVE · CLICK VEHICLE TO FOLLOW · R RESET VIEW · ESC RELEASE</div>
+            <div className="simulation-hud simulation-nav-hint">
+              MOUSE LOOK · WASD MOVE · CLICK VEHICLE TO FOLLOW · ESC RELEASE
+              <button type="button" className="simulation-reset-btn" onClick={() => window.dispatchEvent(new Event(RESET_VIEW_EVENT))}>⟲ Reset view (R)</button>
+            </div>
             <SimConsole />
             <CabPanel />
             <CabAlertLayer />

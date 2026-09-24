@@ -774,6 +774,22 @@ body {
 .simulation-crosshair { z-index: 9; }
 .cab-banner-stack-below { top: 260px; z-index: 8; }
 
+.simulation-nav-hint { display: flex; align-items: center; gap: 12px; padding: 5px 6px 5px 14px; }
+.simulation-reset-btn {
+  pointer-events: auto;
+  padding: 5px 10px;
+  border: 1px solid rgba(240, 181, 52, 0.6);
+  border-radius: 3px;
+  background: rgba(240, 181, 52, 0.12);
+  color: #f0b534;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.simulation-reset-btn:hover { background: #f0b534; color: #071016; }
+
 @keyframes cab-critical-pulse {
   0%, 100% { background: rgba(200, 0, 0, 0.14); }
   50% { background: rgba(230, 0, 0, 0.3); }

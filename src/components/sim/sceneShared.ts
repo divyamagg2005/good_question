@@ -26,8 +26,8 @@ export const vehicleRegistry = new Map<string, VehicleStats>();
 // instead — the crosshair overlay marks that same center point so aim matches what's clickable.
 export const clickableObjects: THREE.Object3D[] = [];
 
-export interface SelectionCtx { selectedId: string | null; select: (id: string) => void }
-export const SelectionContext = createContext<SelectionCtx>({ selectedId: null, select: () => {} });
+export interface SelectionCtx { selectedId: string | null; select: (id: string) => void; clear: () => void }
+export const SelectionContext = createContext<SelectionCtx>({ selectedId: null, select: () => {}, clear: () => {} });
 
 const MODEL_DIR = '/models/';
 export const asset = (name: string) => encodeURI(MODEL_DIR + name);
