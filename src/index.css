@@ -913,6 +913,25 @@ body {
   background: rgba(255, 255, 255, 0.4);
 }
 
+.walkaround-gated-surface {
+  min-height: 360px;
+}
+
+.walkaround-gate-overlay {
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .walkaround-gated-surface {
+    min-height: 420px;
+  }
+
+  .walkaround-gate-overlay {
+    justify-content: flex-start !important;
+    padding-top: 48px !important;
+  }
+}
+
 /* Electric Blue Guidance Surface */
 .blue-guidance-surface {
   background: var(--cockpit-panel-bg);
