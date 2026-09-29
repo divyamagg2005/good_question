@@ -1,179 +1,284 @@
-# React + TypeScript + Vite
+# IronSense Operator Cockpit
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+IronSense is a browser-based operations and safety cockpit for heavy-equipment work. The project combines a React dashboard, a deterministic excavator simulation, live telemetry, backend safety assessments, task tracking, operator training, and shift analytics.
 
-Currently, two official plugins are available:
+The demo is configured for:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Machine: `EXC001` / CAT 320 excavator
+- Operator: `OP1001` / Site Operator
+- Site: `SITE01`
+- Default backend: `good-question-backend.onrender.com`
 
-## React Compiler
+The frontend can run without a connected backend. In that mode the local simulation, shell, local task definitions, and fallback lesson content remain available while backend-derived assessments and history stay offline or empty.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Product Areas
 
-## Expanding the ESLint configuration
+| Area | Purpose |
+| --- | --- |
+| Today | Start-of-shift walkaround, readiness, live telemetry, active task, queued work, and recommended training. |
+| Safety | Proximity radar, dynamic danger/caution zones, safety events, acknowledgements, and incident reporting. |
+| Training | Backend-recommended lessons, quiz questions, server-side completion, and instructor booking. |
+| Insights | Backend anomalies, evidence, recommended actions, task predictions, and performance benchmarks. |
+| Digest | Shift summary, profile trends, fuel and idle measures, incident history, and suggested training. |
+| Simulation | Interactive 3D site view with the excavator, workers, trucks, hazards, zones, weather, and cab telemetry. |
+| Director Console | Backend links, simulation controls, machine toggles, scenarios, language, voice alerts, and recording/replay. |
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Frontend
 
-```js
-export default defineConfig([
-  # IronSense Operator Cockpit
+### Application shell
 
-  IronSense is a browser-based safety and operations cockpit for a heavy-equipment operator. It combines a deterministic excavator simulation, live machine telemetry, backend safety assessments, task progress, training recommendations, and shift analytics in one interface.
+`src/App.tsx` renders the active page inside `AppShell`. The shell provides:
 
-  The current demo is configured for machine `EXC001` (CAT 320), operator `OP1001`, and site `SITE01`. The default backend is the deployed IronSense service; a local backend can be selected from the Director Console.
+- A persistent navigation rail for Today, Safety, Training, Insights, and Digest.
+- A machine/operator status header and live telemetry strip.
+- Weather, lighting, backend, and simulation status indicators.
+- A critical safety banner for active unacknowledged backend alerts.
+- The Director Console toggle and the 3D simulation toggle.
+- URL-hash navigation such as `/#/today` and `/#/safety` for refreshable, bookmarkable views.
+- The `Ctrl+Shift+D` or `Cmd+Shift+D` shortcut for opening the Director Console.
 
-  ## What It Includes
+### Dashboard views
 
-  - **Today**: shift readiness, live telemetry, active/upcoming tasks, and operator context.
-  - **Safety**: backend alerts, proximity targets, incidents, acknowledgements, and incident resolution.
-  - **Training**: recommended micro-lessons, quiz completion, backend grading, and instructor booking.
-  - **Insights**: anomalies, task predictions, benchmarks, and performance signals.
-  - **Digest**: backend-provided shift summaries, trends, incidents, and suggested training.
-  - **3D simulation**: an interactive site view with an excavator, people, haul truck, hazards, zones, weather, lighting, and cab telemetry.
-  - **Director Console**: backend connection status, session controls, weather, machine state, scenario playback, language, voice alerts, and recording/replay.
-  - **Shift ranking**: deterministic safety, fuel, and velocity scoring for the included sample shifts.
+#### Today
 
-  ## Quick Start
+The Today view is the operator's shift starting point. It contains the six-item walkaround checklist, active task progress, the upcoming task queue, the readiness instrument, the safety protocol stack, live telemetry, anomaly prompts, and a link into the recommended training lesson. Completing every walkaround item starts the simulated shift.
 
-  Requirements:
+#### Safety
 
-  - Node.js with npm
-  - A modern browser with WebSocket and WebGL support for the 3D simulation
+Safety presents the machine as the center of a top-down proximity radar. The frontend scales sensor range, caution radius, and danger radius into concentric zones and places workers, vehicles, hazards, and structures around the machine. It also shows weather-adjusted zone explanations, visibility, tilt limits, proximity multipliers, safety events, backend incidents, and the incident drawer with notes, voice-memo, photo-proof, acknowledgement, and resolution actions.
 
-  Install dependencies and start the Vite development server:
+#### Training
 
-  ```bash
-  npm install
-  npm run dev
-  ```
+Training displays modules recommended by the backend from active anomalies and safety signals, followed by the rest of the backend catalogue. If a module's question endpoint is unavailable, the UI can use the local lesson bank in `src/sim/lessonBank.ts`. Quiz completion is posted to the backend when available, and modules can be booked with an instructor.
 
-  Open the URL printed by Vite, normally `http://localhost:5173`.
+#### Insights
 
-  Available commands:
+Insights turns backend anomaly and task-prediction data into reviewable evidence. Anomaly records include severity, model or rule identity, explanation, evidence, score, active state, and a recommended action. Task benchmarks compare predicted ranges with actual or in-progress duration and identify the primary adjustment factor.
 
-  | Command | Purpose |
-  | --- | --- |
-  | `npm run dev` | Start Vite with hot module replacement |
-  | `npm run build` | Type-check and create a production build in `dist/` |
-  | `npm run lint` | Run ESLint across the project |
-  | `npm run preview` | Serve the production build locally |
-  | `npx vitest run` | Run the Vitest test suite, including scoring tests |
+#### Digest
 
-  ## Using The Cockpit
+Digest consumes the backend's operator summary, including profile score and trend, baseline measures, task history, alerts by severity, anomaly counts, idle time, fuel use, seatbelt compliance, recent incidents, and suggested training. Empty or unavailable backend fields are represented as an offline/empty state rather than fabricated dashboard values.
 
-  1. Complete the six-item walkaround checklist on the Today view. Completing it starts the simulated shift and telemetry feed.
-  2. Use the left navigation rail to move between Today, Safety, Training, Insights, and Digest. The selected page is stored in the URL hash, so routes such as `/#/safety` can be bookmarked.
-  3. Open the Director Console from the left rail, or press `Ctrl+Shift+D` (`Cmd+Shift+D` on macOS).
-  4. In the console, choose **Connect** to use backend assessments. Select **Local** when running the backend at `localhost:8000`; the default is the deployed live endpoint.
-  5. Toggle the 3D simulation from the shell to inspect the site and cab display. The simulation and dashboard read from the same synchronized state.
+#### Simulation
 
-  ### Simulation controls
+Simulation uses React Three Fiber and Three.js to render the site. It includes a CAT 320 model, site zones, haul trucks, bulldozers, workers, roaming people, safety rings, labels, a free-fly camera, pointer-lock camera movement, selectable vehicles, loading progress, and WebGL context-loss recovery. Selecting a vehicle opens a live vehicle panel with type, state, speed, and route progress.
 
-  When autopilot is disabled, the excavator can be controlled with:
+### Frontend design system
 
-  | Key | Action |
-  | --- | --- |
-  | `I` / `K` | Travel forward / reverse |
-  | `J` / `L` | Turn left / right |
-  | `U` / `O` | Swing left / right |
-  | `Y` / `H` | Raise / lower the boom |
-  | `X` | Hard brake |
-  | `W` `A` `S` `D` | Move the 3D camera |
+The interface uses an industrial cockpit visual language defined in `src/styles/tokens.css`, `src/App.css`, and `src/index.css`:
 
-  The Director Console supports time scales of `1x`, `5x`, `10x`, `30x`, and `60x`. It also includes twelve reproducible scenarios: blind-spot worker, seatbelt-off travel, operator leaving the cab, long idle, rain, lightning, steep slope, unsafe operation, fuel theft, overheating, fatigue, and manual near-miss reporting.
+- Graphite and black surfaces with high-contrast white text.
+- Caterpillar-inspired safety yellow for primary machine and action signals.
+- Green, amber, and red semantic colors for readiness and safety state.
+- Compact status bars, dense operational panels, telemetry strips, radar visualizations, and monospace machine readouts.
+- Lucide icons for navigation, safety, training, weather, telemetry, and control actions.
+- CSS variables for colors, dimensions, borders, typography, touch targets, and transitions.
 
-  ## Data Flow
+Responsive behavior is defined in `src/styles/responsive.css`:
 
-  The application keeps the simulation, dashboard, cab panel, and Director Console aligned through a single synchronization path:
+- Below `1024px`, the vertical navigation rail becomes a horizontal bar and two-column views stack.
+- Below `768px`, navigation labels collapse to icons, telemetry items stack vertically, and wide tables can scroll horizontally.
+- The 3D canvas remains full-height within the simulation view and includes loading and context-loss feedback.
 
-  ```text
-  3D simulation engine ─┐
-                        ├─ dashboardSync ─> Zustand operator store ─> React views
-  backend telemetry WS ─┤
-  backend cab WS ───────┘
-  backend REST polling ───────────────────> backend store ───────────┘
-  ```
+## User Workflow
 
-  - The simulation advances on a fixed `0.1` second simulation step and uses a seed for repeatable runs.
-  - The telemetry socket sends machine sensor messages to `/ws/telemetry`.
-  - The cab socket receives backend `assessment` messages from `/ws/cab/EXC001`.
-  - REST polling loads profile, tasks, incidents, digest, training, and readiness history. Slow data refreshes every 60 seconds; incident, digest, and readiness data refresh every 15 seconds.
-  - Optional backend endpoints can return `404`; the UI keeps the affected data empty and uses local task/lesson fallbacks where implemented.
-  - Outgoing telemetry can be downloaded as `.jsonl` and replayed through the console.
+1. Open the application and complete the six-item walkaround on Today.
+2. Completing the walkaround starts the local shift simulation and telemetry feed.
+3. Navigate between the dashboard views using the shell rail.
+4. Open the Director Console and select **Connect** for backend assessments, or select **Local** for a backend at `localhost:8000`.
+5. Open Simulation to inspect the 3D site and the shared cab state.
+6. Review safety events and report or resolve incidents when required.
+7. Complete recommended training and review anomaly or task insights.
 
-  ## Backend Endpoints
+## Simulation Controls
 
-  The endpoint definitions live in `src/sim/protocol.ts`:
+When autopilot is disabled, the excavator uses these controls:
 
-  | Target | HTTP | WebSocket |
-  | --- | --- | --- |
-  | Live | `https://good-question-backend.onrender.com` | `wss://good-question-backend.onrender.com` |
-  | Local | `http://localhost:8000` | `ws://localhost:8000` |
+| Key | Action |
+| --- | --- |
+| `I` / `K` | Travel forward / reverse |
+| `J` / `L` | Turn left / right |
+| `U` / `O` | Swing left / right |
+| `Y` / `H` | Raise / lower the boom |
+| `X` | Hard brake |
+| `W` `A` `S` `D` | Move the free-fly camera |
+| `Esc` | Release selection or pointer lock |
 
-  REST requests currently cover:
+The Director Console supports simulation speeds of `1x`, `5x`, `10x`, `30x`, and `60x`, seeded sessions, autopilot, engine, seatbelt, operator-seat, parking-brake, hydraulic-lockout, break, refuelling, weather, and lighting controls.
 
-  - `GET /api/health`
-  - `GET /api/operators/{operator_id}/profile`
-  - `GET /api/tasks/today?operator_id={operator_id}`
-  - `GET /api/incidents?operator_id={operator_id}`
-  - `GET /api/digest/{operator_id}`
-  - `GET /api/training/recommendations/{operator_id}`
-  - `GET /api/training/modules/{module_id}`
-  - `GET /api/readiness/history?machine_id={machine_id}`
-  - `POST /api/incidents`
-  - `POST /api/training/book`
-  - `POST /api/training/complete`
+### Scenarios
 
-  The telemetry contract is versioned as schema `1.0`. Backend field names are intentionally mirrored in the TypeScript protocol types; changes to that contract should be made in coordination with the backend.
+The simulation includes twelve reproducible scenarios:
 
-  ## Project Structure
+1. Worker in a blind spot
+2. Seatbelt off while moving
+3. Operator leaves the seat with the engine running
+4. Delayed truck and long idle
+5. Rain starts
+6. Lightning nearby
+7. Steep slope
+8. Unsafe swing and travel operation
+9. Fuel theft
+10. Overheating
+11. Fatigue after continuous operation
+12. Manual near-miss report
 
-  ```text
-  src/
-  ├── App.tsx                    Application shell and hash navigation
-  ├── components/                Reusable cockpit, simulation, task, safety, and telemetry UI
-  ├── views/                     Today, Safety, Training, Insights, Digest, and Simulation screens
-  ├── sim/
-  │   ├── engine.ts               Deterministic excavator/site simulation
-  │   ├── link.ts                 Telemetry and cab WebSocket client, recording, replay
-  │   ├── backendApi.ts           REST store and background polling
-  │   ├── dashboardSync.ts        Source-to-dashboard state bridge
-  │   ├── protocol.ts             Backend message and assessment types
-  │   ├── site.ts                 Site geometry, hazards, zones, and entities
-  │   └── siteConfig.ts            Machine, operator, site, and operating limits
-  ├── store/                     Zustand operator store
-  ├── types/                     Shared cockpit domain models
-  ├── utils/                     Shift scoring, sample shifts, and local lesson fallback
-  └── styles/                    Design tokens and responsive rules
-  public/
-  ├── models/                    3D model assets
-  └── textures/                  3D environment textures
-  ```
+## Quick Start
 
-  ## Architecture Notes
+### Requirements
 
-  - React 19 and Vite provide the application runtime and build pipeline.
-  - TypeScript is used throughout the application; `npm run build` runs `tsc -b` before Vite builds.
-  - Zustand owns UI/session state and the backend stores. The dashboard store is populated by simulation and backend synchronization rather than inventing independent view data.
-  - Three.js, React Three Fiber, Drei, postprocessing, and Rapier support the 3D scene and interaction layer.
-  - Recharts supplies analytical visualizations and Lucide supplies interface icons.
-  - The visual system is defined in `src/styles/tokens.css`, `src/styles/responsive.css`, and component-specific styles in `src/index.css` and `src/App.css`.
+- Node.js and npm
+- A modern browser with WebSocket and WebGL support for the full experience
 
-  ## Testing And Validation
+### Install and run
 
-  The checked-in automated test currently covers the shift scoring and ranking functions in `src/utils/scoring.test.ts`, including insufficient data, safety penalties, fuel efficiency, velocity caps, and ranking tie-breakers.
+```bash
+npm install
+npm run dev
+```
 
-  For a local validation pass:
+Open the URL printed by Vite, normally `http://localhost:5173`.
 
-  ```bash
-  npm run lint
-  npx vitest run
-  npm run build
-  ```
+### Available commands
 
-  The 3D simulation and backend WebSocket flows require browser-level verification. If the backend is unavailable, the shell and local simulation still load, but live assessments, server-backed recommendations, and some digest data remain offline or empty.
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start Vite with hot module replacement. |
+| `npm run build` | Run TypeScript project builds and create the production bundle in `dist/`. |
+| `npm run lint` | Run ESLint across the repository. |
+| `npm run preview` | Serve the production build locally. |
+| `npx vitest run` | Run the checked-in Vitest tests. |
 
-  ## Configuration
+## Architecture And Data Flow
 
-  Machine identity, operator identity, site limits, default proximity zones, and sensor ranges are centralized in `src/sim/siteConfig.ts`. Live/local backend URLs and the telemetry schema are centralized in `src/sim/protocol.ts`. There is currently no `.env`-based configuration layer; changing these values requires a source change and rebuild.
+```text
+                        +-----------------------------+
+                        | React frontend              |
+                        | AppShell + views + components|
+                        +--------------+--------------+
+                                       | reads/actions
+                        +--------------v--------------+
+                        | Zustand stores               |
+                        | operator + backend + link   |
+                        +--------------+--------------+
+                                       | dashboardSync
+             +-------------------------+-------------------------+
+             |                         |                         |
+      Local sim engine          Telemetry WebSocket       Backend REST/API
+      sensors + site state      cab assessments            profile + history
+             |                         |                         |
+             +-------------------------+-------------------------+
+```
+
+The simulation advances on a fixed `0.1` second simulation step. A seed and the same Director inputs produce repeatable runs. `dashboardSync.ts` reshapes simulation snapshots, cab assessments, backend REST results, alert logs, and anomaly logs into the shared operator store so the dashboard and simulation do not maintain separate values.
+
+### State ownership
+
+- `src/store/useOperatorStore.ts` owns navigation, walkaround, session, telemetry, tasks, safety, training, insights, readiness, and user actions.
+- `src/sim/backendApi.ts` owns REST state and background polling.
+- `src/sim/link.ts` owns WebSocket state, alert lifecycle, reconnect behavior, language, voice, recording, and replay.
+- `src/sim/dashboardSync.ts` is the one-way bridge from simulation/backend sources into the dashboard store.
+- `src/types/cockpit.ts` defines shared frontend domain models.
+
+## Backend Integration
+
+Backend URLs are defined in `src/sim/protocol.ts`:
+
+| Target | HTTP | WebSocket |
+| --- | --- | --- |
+| Live | `https://good-question-backend.onrender.com` | `wss://good-question-backend.onrender.com` |
+| Local | `http://localhost:8000` | `ws://localhost:8000` |
+
+The frontend uses:
+
+- `GET /api/health`
+- `GET /api/operators/{operator_id}/profile`
+- `GET /api/tasks/today?operator_id={operator_id}`
+- `GET /api/incidents?operator_id={operator_id}`
+- `GET /api/digest/{operator_id}`
+- `GET /api/training/recommendations/{operator_id}`
+- `GET /api/training/modules/{module_id}`
+- `GET /api/readiness/history?machine_id={machine_id}`
+- `POST /api/incidents`
+- `POST /api/training/book`
+- `POST /api/training/complete`
+- WebSocket `/ws/telemetry` for outgoing simulation telemetry and backend replies.
+- WebSocket `/ws/cab/EXC001` for backend assessment messages and alert acknowledgements.
+
+REST polling starts in `src/main.tsx`. Profile, task, and training data refresh every 60 seconds; incidents, digest, and readiness history refresh every 15 seconds. The telemetry protocol is versioned as schema `1.0` and its field names must remain aligned with the backend contract.
+
+The Director Console can download sent telemetry as `.jsonl`. A previously recorded file can be replayed over the telemetry connection for repeatable investigation and demos.
+
+## Repository Structure
+
+```text
+src/
+├── App.tsx                    Root view selection and hash navigation
+├── main.tsx                   React bootstrap and polling startup
+├── components/
+│   ├── director/              Director Console integration
+│   ├── readiness/             Readiness score instrument
+│   ├── safety/                Safety protocol and proximity stack
+│   ├── shell/                 Navigation, header, status, and global alerts
+│   ├── sim/                   3D site, cab display, models, and simulation console
+│   ├── task/                  Active task and task progress UI
+│   └── telemetry/             Live machine telemetry strip
+├── views/                     Dashboard and simulation screens
+├── sim/
+│   ├── engine.ts              Deterministic excavator and site simulation
+│   ├── site.ts                Site geometry, hazards, zones, and entities
+│   ├── link.ts                WebSocket client, reconnect, recording, replay
+│   ├── backendApi.ts           REST store and polling
+│   ├── dashboardSync.ts        Source-to-dashboard state bridge
+│   ├── protocol.ts             Backend contract and assessment types
+│   ├── lessonBank.ts           Local training fallback questions
+│   └── siteConfig.ts            Machine, operator, site, and safety limits
+├── store/                     Zustand stores
+├── types/                     Shared cockpit TypeScript models
+├── utils/                     Shift scoring, sample shifts, and tests
+└── styles/                    Design tokens and responsive rules
+public/
+├── models/                    3D model assets
+└── textures/                  3D environment textures
+```
+
+## Technology Stack
+
+- React 19 and React DOM
+- TypeScript 6
+- Vite 8
+- Zustand for state management
+- Three.js, React Three Fiber, Drei, postprocessing, and Rapier for 3D
+- Recharts for analytical charts
+- Lucide React for interface icons
+- ESLint, TypeScript, and Vitest for quality checks
+
+## Scoring Logic
+
+`src/utils/scoring.ts` ranks sample shifts using:
+
+- Safety: 50% of the overall score, reduced by violations and near misses.
+- Fuel: 30%, based on expected versus actual fuel and idle penalty.
+- Velocity: 20%, based on target versus actual cycle time.
+- Unsafe shifts cannot receive a velocity bonus.
+- Shifts shorter than one hour or with fewer than two cycles are marked insufficient and excluded from ranking.
+
+## Configuration And Limitations
+
+Machine identity, operator identity, site limits, default safety zones, and sensor ranges are centralized in `src/sim/siteConfig.ts`. Backend URLs and the telemetry schema are centralized in `src/sim/protocol.ts`.
+
+There is currently no `.env` configuration layer. Changing the active machine, operator, site, backend URLs, or operating limits requires a source change and rebuild. The included sample shift data is intended for the leaderboard and scoring experience, while operational dashboard values are populated by the simulation and backend synchronization path.
+
+## Testing And Validation
+
+The checked-in Vitest suite covers shift scoring and ranking, including safety penalties, fuel efficiency, velocity caps, insufficient data, and deterministic tie-breakers.
+
+Run the standard validation pass:
+
+```bash
+npm run lint
+npx vitest run
+npm run build
+```
+
+Browser-level testing is still needed for WebGL rendering, pointer-lock interaction, WebSocket connectivity, backend responses, and responsive layouts. If the backend is unavailable, the frontend should still load the shell and local simulation, but live assessments, server-backed recommendations, and some digest data will be unavailable.
